@@ -17,6 +17,7 @@ import ProgressBar from '../components/ProgressBar';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 import { progressAPI } from '../services/api';
+import { mockDashboardData } from '../utils/mockData';
 
 const DashboardScreen = () => {
     const { user } = useAuth();

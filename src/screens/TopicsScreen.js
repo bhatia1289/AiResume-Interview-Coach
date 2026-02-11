@@ -16,6 +16,7 @@ import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
 import { topicsAPI } from '../services/api';
+import { mockTopicsData } from '../utils/mockData';
 
 const TopicsScreen = () => {
     const router = useRouter();
