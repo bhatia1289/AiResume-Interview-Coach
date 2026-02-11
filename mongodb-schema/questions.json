@@ -1,0 +1,39 @@
+{
+  "_id": "ObjectId",
+  "title": "String [required]",
+  "slug": "String [required, unique]",
+  "description": "String [required]",
+  "topicId": "ObjectId [ref: topics]",
+  "difficulty": "String [enum: 'easy', 'medium', 'hard']",
+  "examples": [
+    {
+      "input": "String [required]",
+      "output": "String [required]",
+      "explanation": "String [optional]"
+    }
+  ],
+  "constraints": "String [optional]",
+  "hints": ["Array of hint strings for AI"],
+  "solution": {
+    "approach": "String [description of approach]",
+    "timeComplexity": "String [e.g., 'O(n)']",
+    "spaceComplexity": "String [e.g., 'O(1)']",
+    "codeTemplate": "String [starter code]"
+  },
+  "testCases": [
+    {
+      "input": "String",
+      "expectedOutput": "String",
+      "isPublic": "Boolean [default: false]"
+    }
+  ],
+  "stats": {
+    "totalSubmissions": "Number [default: 0]",
+    "totalAccepted": "Number [default: 0]",
+    "acceptanceRate": "Number [calculated]"
+  },
+  "tags": ["Array of strings for search"],
+  "isActive": "Boolean [default: true]",
+  "createdAt": "Date [default: Date.now]",
+  "updatedAt": "Date [default: Date.now]"
+}

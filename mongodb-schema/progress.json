@@ -1,0 +1,44 @@
+{
+  "_id": "ObjectId",
+  "userId": "ObjectId [ref: users, required, unique]",
+  "topicProgress": [
+    {
+      "topicId": "ObjectId [ref: topics]",
+      "totalQuestions": "Number",
+      "solvedQuestions": "Number [default: 0]",
+      "progressPercentage": "Number [calculated]",
+      "lastSolvedAt": "Date [optional]",
+      "difficultyBreakdown": {
+        "easy": { "total": "Number", "solved": "Number" },
+        "medium": { "total": "Number", "solved": "Number" },
+        "hard": { "total": "Number", "solved": "Number" }
+      }
+    }
+  ],
+  "overallStats": {
+    "totalSolved": "Number [default: 0]",
+    "totalQuestions": "Number",
+    "overallPercentage": "Number [calculated]",
+    "currentStreak": "Number [default: 0]",
+    "longestStreak": "Number [default: 0]",
+    "lastActiveDate": "Date"
+  },
+  "recentActivity": [
+    {
+      "questionId": "ObjectId [ref: questions]",
+      "topicId": "ObjectId [ref: topics]",
+      "action": "String [enum: 'solved', 'attempted']",
+      "timestamp": "Date [default: Date.now]"
+    }
+  ],
+  "achievements": [
+    {
+      "type": "String [e.g., 'first_solve', 'streak_7', 'topic_master']",
+      "title": "String",
+      "description": "String",
+      "earnedAt": "Date",
+      "metadata": "Object [optional]"
+    }
+  ],
+  "updatedAt": "Date [default: Date.now]"
+}

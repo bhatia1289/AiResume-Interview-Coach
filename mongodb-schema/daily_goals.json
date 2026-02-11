@@ -1,0 +1,33 @@
+{
+  "_id": "ObjectId",
+  "userId": "ObjectId [ref: users, required]",
+  "date": "Date [required, date only]",
+  "goal": {
+    "target": "Number [default: 3]",
+    "completed": "Number [default: 0]",
+    "achieved": "Boolean [default: false]"
+  },
+  "questionsAttempted": [
+    {
+      "questionId": "ObjectId [ref: questions]",
+      "topicId": "ObjectId [ref: topics]",
+      "status": "String [enum: 'solved', 'attempted']",
+      "submittedAt": "Date"
+    }
+  ],
+  "streakData": {
+    "maintained": "Boolean [default: false]",
+    "streakBefore": "Number",
+    "streakAfter": "Number"
+  },
+  "aiUsage": {
+    "hintsUsed": "Number [default: 0]",
+    "explanationsUsed": "Number [default: 0]"
+  },
+  "metadata": {
+    "reminderSent": "Boolean [default: false]",
+    "completedAt": "Date [optional]"
+  },
+  "createdAt": "Date [default: Date.now]",
+  "updatedAt": "Date [default: Date.now]"
+}

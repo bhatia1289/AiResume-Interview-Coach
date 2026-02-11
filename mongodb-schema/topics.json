@@ -1,0 +1,17 @@
+{
+  "_id": "ObjectId",
+  "name": "String [required]",
+  "slug": "String [required, unique]",
+  "description": "String [required]",
+  "icon": "String [optional, emoji/icon name]",
+  "difficulty": "String [enum: 'easy', 'medium', 'hard', default: 'medium']",
+  "order": "Number [for sorting topics]",
+  "metadata": {
+    "totalQuestions": "Number [default: 0]",
+    "estimatedHours": "Number [optional]",
+    "prerequisites": ["Array of topic IDs"]
+  },
+  "isActive": "Boolean [default: true]",
+  "createdAt": "Date [default: Date.now]",
+  "updatedAt": "Date [default: Date.now]"
+}

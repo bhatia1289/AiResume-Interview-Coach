@@ -1,0 +1,29 @@
+{
+  "_id": "ObjectId",
+  "userId": "ObjectId [ref: users, required]",
+  "questionId": "ObjectId [ref: questions, required]",
+  "topicId": "ObjectId [ref: topics, required]",
+  "code": "String [required]",
+  "language": "String [required, e.g., 'python', 'javascript']",
+  "status": "String [enum: 'pending', 'accepted', 'wrong_answer', 'runtime_error', 'compile_error']",
+  "testResults": [
+    {
+      "testCaseId": "String",
+      "passed": "Boolean",
+      "input": "String",
+      "expectedOutput": "String",
+      "actualOutput": "String",
+      "error": "String [optional]"
+    }
+  ],
+  "metrics": {
+    "executionTime": "Number [milliseconds]",
+    "memoryUsage": "Number [bytes]",
+    "codeLength": "Number [characters]"
+  },
+  "feedback": "String [AI-generated feedback]",
+  "aiHintUsed": "Boolean [default: false]",
+  "aiExplanationUsed": "Boolean [default: false]",
+  "submittedAt": "Date [default: Date.now]",
+  "evaluatedAt": "Date [optional]"
+}
