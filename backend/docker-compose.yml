@@ -1,0 +1,42 @@
+# Docker Compose configuration for development
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: dsa_mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: dsa_assistant
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - dsa_network
+
+  backend:
+    build: .
+    container_name: dsa_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: mongodb://admin:password@mongodb:27017/dsa_assistant?authSource=admin
+      SECRET_KEY: your-super-secret-key-change-this-in-production
+      CORS_ORIGINS: http://localhost:3000,http://localhost:8081,http://localhost:8082
+    depends_on:
+      - mongodb
+    volumes:
+      - ./app:/app/app
+    networks:
+      - dsa_network
+
+volumes:
+  mongodb_data:
+
+networks:
+  dsa_network:
+    driver: bridge

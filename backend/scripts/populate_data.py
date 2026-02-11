@@ -1,0 +1,186 @@
+"""
+Script to populate the database with sample data
+"""
+
+import asyncio
+from datetime import datetime
+from app.database import connect_to_mongo, close_mongo_connection
+from app.services.topic_service import TopicService
+from app.services.question_service import QuestionService
+
+
+async def create_sample_data():
+    """Create sample topics and questions"""
+    await connect_to_mongo()
+    
+    try:
+        db = get_database()
+        topic_service = TopicService(db)
+        question_service = QuestionService(db)
+        
+        # Sample topics
+        topics_data = [
+            {
+                "name": "Arrays",
+                "description": "Learn about array manipulation, searching, and sorting algorithms",
+                "icon": "📊",
+                "difficulty": "easy",
+                "slug": "arrays"
+            },
+            {
+                "name": "Linked Lists",
+                "description": "Master linked list operations and common interview questions",
+                "icon": "🔗",
+                "difficulty": "medium",
+                "slug": "linked-lists"
+            },
+            {
+                "name": "Trees",
+                "description": "Explore binary trees, BST, and tree traversal algorithms",
+                "icon": "🌳",
+                "difficulty": "medium",
+                "slug": "trees"
+            },
+            {
+                "name": "Graphs",
+                "description": "Understand graph algorithms like BFS, DFS, and shortest paths",
+                "icon": "🕸️",
+                "difficulty": "hard",
+                "slug": "graphs"
+            },
+            {
+                "name": "Dynamic Programming",
+                "description": "Master DP techniques for optimization problems",
+                "icon": "⚡",
+                "difficulty": "hard",
+                "slug": "dynamic-programming"
+            }
+        ]
+        
+        # Create topics
+        created_topics = []
+        for topic_data in topics_data:
+            existing = await topic_service.get_topic_by_slug(topic_data["slug"])
+            if not existing:
+                topic = await topic_service.create_topic(topic_data)
+                created_topics.append(topic)
+                print(f"Created topic: {topic.name}")
+            else:
+                created_topics.append(existing)
+                print(f"Topic already exists: {existing.name}")
+        
+        # Sample questions for each topic
+        questions_data = [
+            # Arrays questions
+            {
+                "topic_id": created_topics[0].id,
+                "title": "Two Sum",
+                "description": "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
+                "difficulty": "easy",
+                "examples": [
+                    {"input": "nums = [2,7,11,15], target = 9", "output": "[0,1]"},
+                    {"input": "nums = [3,2,4], target = 6", "output": "[1,2]"}
+                ],
+                "constraints": "2 <= nums.length <= 10^4",
+                "code_template": "def twoSum(nums, target):\n    # Your code here\n    pass"
+            },
+            {
+                "topic_id": created_topics[0].id,
+                "title": "Best Time to Buy and Sell Stock",
+                "description": "You are given an array prices where prices[i] is the price of a given stock on the ith day. Maximize your profit.",
+                "difficulty": "easy",
+                "examples": [
+                    {"input": "prices = [7,1,5,3,6,4]", "output": "5"},
+                    {"input": "prices = [7,6,4,3,1]", "output": "0"}
+                ],
+                "constraints": "1 <= prices.length <= 10^5",
+                "code_template": "def maxProfit(prices):\n    # Your code here\n    pass"
+            },
+            
+            # Linked Lists questions
+            {
+                "topic_id": created_topics[1].id,
+                "title": "Reverse Linked List",
+                "description": "Given the head of a singly linked list, reverse the list, and return the reversed list.",
+                "difficulty": "easy",
+                "examples": [
+                    {"input": "head = [1,2,3,4,5]", "output": "[5,4,3,2,1]"},
+                    {"input": "head = [1,2]", "output": "[2,1]"}
+                ],
+                "constraints": "The number of nodes in the list is in the range [0, 5000]",
+                "code_template": "def reverseList(head):\n    # Your code here\n    pass"
+            },
+            
+            # Trees questions
+            {
+                "topic_id": created_topics[2].id,
+                "title": "Maximum Depth of Binary Tree",
+                "description": "Given the root of a binary tree, return its maximum depth.",
+                "difficulty": "easy",
+                "examples": [
+                    {"input": "root = [3,9,20,null,null,15,7]", "output": "3"},
+                    {"input": "root = [1,null,2]", "output": "2"}
+                ],
+                "constraints": "The number of nodes in the tree is in the range [0, 10^4]",
+                "code_template": "def maxDepth(root):\n    # Your code here\n    pass"
+            },
+            
+            # Graphs questions
+            {
+                "topic_id": created_topics[3].id,
+                "title": "Number of Islands",
+                "description": "Given an m x n 2D binary grid which represents a map of '1's (land) and '0's (water), return the number of islands.",
+                "difficulty": "medium",
+                "examples": [
+                    {"input": "grid = [[\"1\",\"1\",\"1\",\"1\",\"0\"],[\"1\",\"1\",\"0\",\"1\",\"0\"],[\"1\",\"1\",\"0\",\"0\",\"0\"],[\"0\",\"0\",\"0\",\"0\",\"0\"]]", "output": "1"},
+                    {"input": "grid = [[\"1\",\"1\",\"0\",\"0\",\"0\"],[\"1\",\"1\",\"0\",\"0\",\"0\"],[\"0\",\"0\",\"1\",\"0\",\"0\"],[\"0\",\"0\",\"0\",\"1\",\"1\"]]", "output": "3"}
+                ],
+                "constraints": "m == grid.length, n == grid[i].length, 1 <= m, n <= 300",
+                "code_template": "def numIslands(grid):\n    # Your code here\n    pass"
+            },
+            
+            # Dynamic Programming questions
+            {
+                "topic_id": created_topics[4].id,
+                "title": "Climbing Stairs",
+                "description": "You are climbing a staircase. It takes n steps to reach the top. Each time you can either climb 1 or 2 steps.",
+                "difficulty": "easy",
+                "examples": [
+                    {"input": "n = 2", "output": "2"},
+                    {"input": "n = 3", "output": "3"}
+                ],
+                "constraints": "1 <= n <= 45",
+                "code_template": "def climbStairs(n):\n    # Your code here\n    pass"
+            }
+        ]
+        
+        # Create questions
+        for question_data in questions_data:
+            existing = await self.db.questions.find_one({
+                "title": question_data["title"],
+                "topic_id": question_data["topic_id"]
+            })
+            
+            if not existing:
+                question = await question_service.create_question(question_data)
+                print(f"Created question: {question.title}")
+                
+                # Update topic problems count
+                count = await question_service.count_questions_by_topic(question.topic_id)
+                await topic_service.update_problems_count(question.topic_id, count)
+            else:
+                print(f"Question already exists: {question_data['title']}")
+        
+        print("Sample data creation completed!")
+        
+    except Exception as e:
+        print(f"Error creating sample data: {e}")
+        raise
+    
+    finally:
+        await close_mongo_connection()
+
+
+if __name__ == "__main__":
+    from app.database import get_database
+    asyncio.run(create_sample_data())

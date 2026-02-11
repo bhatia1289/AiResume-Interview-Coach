@@ -1,0 +1,53 @@
+# Production Docker Compose configuration
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: dsa_mongodb_prod
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-password}
+      MONGO_INITDB_DATABASE: dsa_assistant
+    volumes:
+      - mongodb_prod_data:/data/db
+    networks:
+      - dsa_prod_network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+
+  backend:
+    build: .
+    container_name: dsa_backend_prod
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-password}@mongodb:27017/dsa_assistant?authSource=admin
+      SECRET_KEY: ${SECRET_KEY:-your-super-secret-key-change-this-in-production}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      DEBUG: "false"
+      RATE_LIMIT_PER_MINUTE: "60"
+    depends_on:
+      - mongodb
+    networks:
+      - dsa_prod_network
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+
+volumes:
+  mongodb_prod_data:
+
+networks:
+  dsa_prod_network:
+    driver: bridge
