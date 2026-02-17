@@ -1,9 +1,4 @@
-/**
- * Dashboard Screen
- * Home screen showing user progress and stats
- */
-
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
     RefreshControl,
     ScrollView,
@@ -11,275 +6,233 @@ import {
     Text,
     View
 } from 'react-native';
-import Card from '../components/Card';
+import Card, { EmptyState } from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ProgressBar from '../components/ProgressBar';
-import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
+import { COLORS, SPACING } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 import { progressAPI } from '../services/api';
-import { mockDashboardData } from '../utils/mockData';
 
 const DashboardScreen = () => {
     const { user } = useAuth();
     const [dashboardData, setDashboardData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState(null);
 
-    useEffect(() => {
-        fetchDashboardData();
-    }, []);
-
-    /**
-     * Fetch dashboard data from API
-     * Falls back to mock data if API is unavailable
-     */
-    const fetchDashboardData = async () => {
+    const fetchDashboardData = useCallback(async (showLoading = true) => {
+        if (showLoading) setLoading(true);
+        setError(null);
         try {
             const data = await progressAPI.getDashboard();
             setDashboardData(data);
-        } catch (error) {
-            console.error('Error fetching dashboard:', error);
-            console.log('Using mock data for development...');
-
-            // Use mock data when backend is not available
-            setDashboardData(mockDashboardData);
-
-            // Optional: Show a subtle message (comment out in production)
-            // Alert.alert('Demo Mode', 'Using sample data. Connect backend for real data.');
+        } catch (err) {
+            console.error('Dashboard Error:', err);
+            setError(err.message || 'Failed to connect to server');
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, []);
 
-    /**
-     * Handle pull to refresh
-     */
+    useEffect(() => {
+        fetchDashboardData();
+    }, [fetchDashboardData]);
+
     const onRefresh = () => {
         setRefreshing(true);
-        fetchDashboardData();
+        fetchDashboardData(false);
     };
 
-    if (loading) {
-        return <LoadingSpinner />;
-    }
+    if (loading) return <LoadingSpinner />;
 
     return (
         <ScrollView
             style={styles.container}
             contentContainerStyle={styles.content}
             refreshControl={
-                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    colors={[COLORS.primary]}
+                />
             }
         >
-            {/* Welcome Header */}
+            {/* Header section */}
             <View style={styles.header}>
-                <Text style={styles.greeting}>Hello, {user?.name}! 👋</Text>
-                <Text style={styles.subtitle}>Ready to practice DSA today?</Text>
+                <Text style={styles.greeting}>Hey {user?.name?.split(' ')[0]}! 👋</Text>
+                <Text style={styles.subtitle}>Let's master some algorithms today.</Text>
             </View>
 
-            {/* Stats Cards */}
+            {/* Error State */}
+            {error && (
+                <Card style={styles.errorCard} padding="sm">
+                    <Text style={styles.errorText}>⚠️ {error}</Text>
+                </Card>
+            )}
+
+            {/* Main Stats Grid */}
             <View style={styles.statsGrid}>
                 <Card style={styles.statCard} shadow="sm">
-                    <Text style={styles.statValue}>
-                        {dashboardData?.streak || 0} 🔥
-                    </Text>
+                    <Text style={styles.statValue}>{dashboardData?.streak || 0} 🔥</Text>
                     <Text style={styles.statLabel}>Day Streak</Text>
                 </Card>
-
                 <Card style={styles.statCard} shadow="sm">
-                    <Text style={styles.statValue}>
-                        {dashboardData?.totalSolved || 0}
-                    </Text>
-                    <Text style={styles.statLabel}>Problems Solved</Text>
+                    <Text style={styles.statValue}>{dashboardData?.total_solved || 0}</Text>
+                    <Text style={styles.statLabel}>Solved</Text>
                 </Card>
             </View>
 
-            {/* Today's Goal */}
-            <Card style={styles.goalCard}>
-                <Text style={styles.sectionTitle}>Today's Goal</Text>
-                <View style={styles.goalContent}>
-                    <Text style={styles.goalText}>
-                        {dashboardData?.todayProgress || 0} / {dashboardData?.dailyGoal || 3} problems
-                    </Text>
-                    <ProgressBar
-                        progress={
-                            ((dashboardData?.todayProgress || 0) /
-                                (dashboardData?.dailyGoal || 3)) *
-                            100
-                        }
-                        showPercentage
-                        style={styles.progressBar}
-                    />
+            {/* Daily Goal & Overall Progress */}
+            <Card style={styles.mainProgressCard}>
+                <View style={styles.progressRow}>
+                    <View style={styles.progressItem}>
+                        <Text style={styles.sectionTitle}>Today's Goal</Text>
+                        <Text style={styles.progressValue}>
+                            {dashboardData?.today_progress || 0} / {dashboardData?.daily_goal || 3}
+                        </Text>
+                        <ProgressBar
+                            progress={((dashboardData?.today_progress || 0) / (dashboardData?.daily_goal || 3)) * 100}
+                            height={10}
+                        />
+                    </View>
+                    <View style={styles.divider} />
+                    <View style={styles.progressItem}>
+                        <Text style={styles.sectionTitle}>Total Mastered</Text>
+                        <Text style={styles.progressValue}>
+                            {Math.round(dashboardData?.completion_percentage || 0)}%
+                        </Text>
+                        <ProgressBar
+                            progress={dashboardData?.completion_percentage || 0}
+                            color={COLORS.secondary}
+                            height={10}
+                        />
+                    </View>
                 </View>
             </Card>
 
+            {/* Weak Topics - Alert the user */}
+            {dashboardData?.weak_topics?.length > 0 && (
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Focus Areas 🎯</Text>
+                    <View style={styles.weakTopicsGrid}>
+                        {dashboardData.weak_topics.map((topic, idx) => (
+                            <Card key={idx} style={styles.weakTopicCard} padding="sm">
+                                <Text style={styles.weakTopicName}>{topic.name}</Text>
+                                <Text style={styles.weakTopicAccuracy}>
+                                    Accuracy: {Math.round(topic.accuracy)}%
+                                </Text>
+                            </Card>
+                        ))}
+                    </View>
+                </View>
+            )}
+
             {/* Topic Progress */}
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Topic Progress</Text>
-                {dashboardData?.topicProgress?.map((topic) => (
-                    <Card key={topic.id} style={styles.topicCard} shadow="sm">
-                        <View style={styles.topicHeader}>
-                            <Text style={styles.topicIcon}>{topic.icon}</Text>
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Learning Progress</Text>
+                </View>
+
+                {dashboardData?.topic_progress?.length > 0 ? (
+                    dashboardData.topic_progress.map((topic) => (
+                        <Card key={topic.topic_id} style={styles.topicCard} shadow="sm">
                             <View style={styles.topicInfo}>
                                 <Text style={styles.topicName}>{topic.name}</Text>
                                 <Text style={styles.topicStats}>
-                                    {topic.solved} / {topic.total} problems
+                                    {topic.questions_solved} / {topic.total_questions} Solved
                                 </Text>
                             </View>
-                        </View>
-                        <ProgressBar
-                            progress={(topic.solved / topic.total) * 100}
-                            color={COLORS.secondary}
-                        />
-                    </Card>
-                ))}
+                            <ProgressBar
+                                progress={topic.percentage}
+                                color={topic.percentage > 70 ? COLORS.success : COLORS.primary}
+                            />
+                        </Card>
+                    ))
+                ) : (
+                    <EmptyState
+                        title="Start Your Journey"
+                        message="Pick a topic from the Topics tab to start practicing!"
+                    />
+                )}
             </View>
 
             {/* Recent Activity */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Recent Activity</Text>
-                {dashboardData?.recentActivity?.map((activity, index) => (
-                    <Card key={index} style={styles.activityCard} shadow="sm">
-                        <View style={styles.activityContent}>
-                            <Text style={styles.activityTitle}>{activity.problem}</Text>
-                            <Text style={styles.activityTime}>{activity.time}</Text>
-                        </View>
-                        <View
-                            style={[
+                {dashboardData?.recent_activity?.length > 0 ? (
+                    dashboardData.recent_activity.map((activity, index) => (
+                        <Card key={index} style={styles.activityCard} padding="sm">
+                            <View style={styles.activityInfo}>
+                                <Text style={styles.activityName} numberOfLines={1}>
+                                    {activity.question_id?.split('-').join(' ')}
+                                </Text>
+                                <Text style={styles.activityDate}>
+                                    {new Date(activity.submitted_at).toLocaleDateString()}
+                                </Text>
+                            </View>
+                            <View style={[
                                 styles.statusBadge,
-                                { backgroundColor: activity.status === 'solved' ? COLORS.success : COLORS.warning },
-                            ]}
-                        >
-                            <Text style={styles.statusText}>
-                                {activity.status === 'solved' ? '✓ Solved' : '⏱ Attempted'}
-                            </Text>
-                        </View>
-                    </Card>
-                ))}
+                                { backgroundColor: activity.status === 'solved' ? COLORS.success + '20' : COLORS.warning + '20' }
+                            ]}>
+                                <Text style={[
+                                    styles.statusText,
+                                    { color: activity.status === 'solved' ? COLORS.success : COLORS.warning }
+                                ]}>
+                                    {activity.status === 'solved' ? '✓ Solved' : '⏱ Tried'}
+                                </Text>
+                            </View>
+                        </Card>
+                    ))
+                ) : (
+                    <Text style={styles.noActivityText}>No recent activity yet.</Text>
+                )}
             </View>
         </ScrollView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: COLORS.background,
-    },
-    content: {
-        padding: SPACING.lg,
-    },
-    header: {
-        marginBottom: SPACING.lg,
-    },
-    greeting: {
-        fontSize: TYPOGRAPHY.fontSize['2xl'],
-        fontWeight: TYPOGRAPHY.fontWeight.bold,
-        color: COLORS.text,
-        marginBottom: SPACING.xs,
-    },
-    subtitle: {
-        fontSize: TYPOGRAPHY.fontSize.base,
-        color: COLORS.textSecondary,
-    },
-    statsGrid: {
-        flexDirection: 'row',
-        gap: SPACING.md,
-        marginBottom: SPACING.lg,
-    },
-    statCard: {
-        flex: 1,
-        alignItems: 'center',
-        paddingVertical: SPACING.lg,
-    },
-    statValue: {
-        fontSize: TYPOGRAPHY.fontSize['3xl'],
-        fontWeight: TYPOGRAPHY.fontWeight.bold,
-        color: COLORS.primary,
-        marginBottom: SPACING.xs,
-    },
-    statLabel: {
-        fontSize: TYPOGRAPHY.fontSize.sm,
-        color: COLORS.textSecondary,
-    },
-    goalCard: {
-        marginBottom: SPACING.lg,
-    },
-    sectionTitle: {
-        fontSize: TYPOGRAPHY.fontSize.lg,
-        fontWeight: TYPOGRAPHY.fontWeight.semibold,
-        color: COLORS.text,
-        marginBottom: SPACING.md,
-    },
-    goalContent: {
-        marginTop: SPACING.sm,
-    },
-    goalText: {
-        fontSize: TYPOGRAPHY.fontSize.base,
-        color: COLORS.textSecondary,
-        marginBottom: SPACING.sm,
-    },
-    progressBar: {
-        marginTop: SPACING.sm,
-    },
-    section: {
-        marginBottom: SPACING.lg,
-    },
-    topicCard: {
-        marginBottom: SPACING.sm,
-    },
-    topicHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: SPACING.md,
-    },
-    topicIcon: {
-        fontSize: 32,
-        marginRight: SPACING.md,
-    },
-    topicInfo: {
-        flex: 1,
-    },
-    topicName: {
-        fontSize: TYPOGRAPHY.fontSize.base,
-        fontWeight: TYPOGRAPHY.fontWeight.semibold,
-        color: COLORS.text,
-    },
-    topicStats: {
-        fontSize: TYPOGRAPHY.fontSize.sm,
-        color: COLORS.textSecondary,
-        marginTop: SPACING.xs,
-    },
-    activityCard: {
-        marginBottom: SPACING.sm,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    activityContent: {
-        flex: 1,
-    },
-    activityTitle: {
-        fontSize: TYPOGRAPHY.fontSize.base,
-        fontWeight: TYPOGRAPHY.fontWeight.medium,
-        color: COLORS.text,
-        marginBottom: SPACING.xs,
-    },
-    activityTime: {
-        fontSize: TYPOGRAPHY.fontSize.sm,
-        color: COLORS.textSecondary,
-    },
-    statusBadge: {
-        paddingHorizontal: SPACING.sm,
-        paddingVertical: SPACING.xs,
-        borderRadius: 12,
-    },
-    statusText: {
-        fontSize: TYPOGRAPHY.fontSize.xs,
-        color: COLORS.surface,
-        fontWeight: TYPOGRAPHY.fontWeight.medium,
-    },
+    container: { flex: 1, backgroundColor: COLORS.background },
+    content: { padding: SPACING.lg },
+    header: { marginBottom: SPACING.xl },
+    greeting: { fontSize: 28, fontWeight: 'bold', color: COLORS.text, marginBottom: 4 },
+    subtitle: { fontSize: 16, color: COLORS.textSecondary },
+
+    errorCard: { backgroundColor: '#fee2e2', marginBottom: SPACING.md, borderLeftWidth: 4, borderLeftColor: COLORS.error },
+    errorText: { color: COLORS.error, fontWeight: '500' },
+
+    statsGrid: { flexDirection: 'row', gap: SPACING.md, marginBottom: SPACING.md },
+    statCard: { flex: 1, alignItems: 'center', paddingVertical: SPACING.lg },
+    statValue: { fontSize: 32, fontWeight: 'bold', color: COLORS.primary },
+    statLabel: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4 },
+
+    mainProgressCard: { marginBottom: SPACING.lg, padding: SPACING.md },
+    progressRow: { flexDirection: 'row' },
+    progressItem: { flex: 1 },
+    progressValue: { fontSize: 18, fontWeight: '700', marginVertical: 8, color: COLORS.text },
+    divider: { width: 1, backgroundColor: COLORS.border, marginHorizontal: SPACING.md },
+
+    section: { marginBottom: SPACING.xl },
+    sectionTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text, marginBottom: SPACING.md },
+
+    weakTopicsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
+    weakTopicCard: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ffedd5', flex: 1, minWidth: '45%' },
+    weakTopicName: { fontSize: 14, fontWeight: '600', color: COLORS.text },
+    weakTopicAccuracy: { fontSize: 12, color: COLORS.warning, marginTop: 4 },
+
+    topicCard: { marginBottom: SPACING.md },
+    topicInfo: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+    topicName: { fontSize: 16, fontWeight: '600', color: COLORS.text },
+    topicStats: { fontSize: 13, color: COLORS.textSecondary },
+
+    activityCard: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sm, backgroundColor: '#fff' },
+    activityInfo: { flex: 1 },
+    activityName: { fontSize: 15, fontWeight: '500', color: COLORS.text, textTransform: 'capitalize' },
+    activityDate: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+    statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+    statusText: { fontSize: 12, fontWeight: '600' },
+    noActivityText: { fontSize: 14, color: COLORS.textLight, textAlign: 'center', marginTop: 10 }
 });
 
 export default DashboardScreen;

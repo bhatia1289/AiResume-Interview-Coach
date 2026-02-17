@@ -124,92 +124,137 @@ class ProgressService:
         
         return today_submission is not None
     
-    async def get_dashboard_data(self, user_id: str) -> DashboardStats:
-        """Get dashboard data for a user"""
-        # Get user stats
+    async def get_dashboard_data(self, user_id: str) -> Dict[str, Any]:
+        """Get enhanced dashboard data for a user"""
         user = await self.user_service.get_user_by_id(user_id)
         if not user:
             raise ValueError("User not found")
         
-        # Get today's progress
+        # 1. Today's solved count
         today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-        today_progress = await self.submissions_collection.count_documents({
+        today_solved = await self.submissions_collection.count_documents({
             "user_id": user_id,
             "status": "solved",
             "submitted_at": {"$gte": today_start}
         })
         
-        # Get daily goal
+        # 2. Daily goal info
         daily_goal = await self.daily_goal_service.get_today_goal(user_id)
         
-        # Get topic progress
-        topic_progress = await self.get_topic_progress(user_id)
+        # 3. Topic completion & logic
+        topic_progress = await self.get_topic_progress_with_names(user_id)
         
-        # Get recent activity
+        # 4. Weak topics (Accuracy < 60%)
+        weak_topics = await self.get_weak_topics(user_id)
+        
+        # 5. Recent activity
         recent_activity = await self.get_recent_activity(user_id, limit=5)
         
-        return DashboardStats(
-            streak=user.current_streak,
-            total_solved=user.total_solved,
-            today_progress=today_progress,
-            daily_goal=daily_goal.target_problems if daily_goal else 3,
-            topic_progress=topic_progress,
-            recent_activity=recent_activity
-        )
-    
+        return {
+            "streak": user.current_streak,
+            "total_solved": user.total_solved,
+            "today_progress": today_solved,
+            "daily_goal": daily_goal.target_problems,
+            "completion_percentage": self._calculate_overall_completion(topic_progress),
+            "topic_progress": topic_progress,
+            "weak_topics": weak_topics,
+            "recent_activity": [s.dict() for s in recent_activity]
+        }
+
+    async def get_topic_progress_with_names(self, user_id: str) -> List[Dict[str, Any]]:
+        """Get topic progress joined with topic details"""
+        pipeline = [
+            {"$match": {"user_id": user_id}},
+            {
+                "$lookup": {
+                    "from": "topics",
+                    "localField": "topic_id",
+                    "foreignField": "id",
+                    "as": "topic_info"
+                }
+            },
+            {"$unwind": "$topic_info"},
+            {
+                "$project": {
+                    "topic_id": 1,
+                    "name": "$topic_info.name",
+                    "questions_solved": 1,
+                    "total_questions": 1,
+                    "percentage": {
+                        "$multiply": [{"$divide": ["$questions_solved", "$total_questions"]}, 100]
+                    }
+                }
+            }
+        ]
+        cursor = self.progress_collection.aggregate(pipeline)
+        return await cursor.to_list(length=100)
+
+    async def get_weak_topics(self, user_id: str) -> List[Dict[str, Any]]:
+        """Identify topics where success rate < 60% using aggregation"""
+        pipeline = [
+            {"$match": {"user_id": user_id}},
+            {
+                "$group": {
+                    "_id": "$topic_id",
+                    "total_attempts": {"$sum": 1},
+                    "solved_count": {
+                        "$sum": {"$cond": [{"$eq": ["$status", "solved"]}, 1, 0]}
+                    }
+                }
+            },
+            {
+                "$project": {
+                    "topic_id": "$_id",
+                    "accuracy": {"$divide": ["$solved_count", "$total_attempts"]}
+                }
+            },
+            {"$match": {"accuracy": {"$lt": 0.6}}},
+            {
+                "$lookup": {
+                    "from": "topics",
+                    "localField": "topic_id",
+                    "foreignField": "id",
+                    "as": "topic_info"
+                }
+            },
+            {"$unwind": "$topic_info"},
+            {
+                "$project": {
+                    "_id": 0,
+                    "name": "$topic_info.name",
+                    "accuracy": {"$multiply": ["$accuracy", 100]},
+                    "total_attempts": 1
+                }
+            }
+        ]
+        cursor = self.submissions_collection.aggregate(pipeline)
+        return await cursor.to_list(length=10)
+
+    def _calculate_overall_completion(self, topics_progress: List[Dict[str, Any]]) -> float:
+        if not topics_progress: return 0
+        total_solved = sum(p["questions_solved"] for p in topics_progress)
+        total_qs = sum(p["total_questions"] for p in topics_progress)
+        return (total_solved / total_qs * 100) if total_qs > 0 else 0
+
     async def get_topic_progress(self, user_id: str) -> List[ProgressResponse]:
         """Get progress for all topics"""
         cursor = self.progress_collection.find({"user_id": user_id})
         progress_list = []
-        
         async for progress_data in cursor:
             progress_data["id"] = str(progress_data.pop("_id"))
             progress_list.append(ProgressResponse(**progress_data))
-        
         return progress_list
-    
+
     async def get_recent_activity(self, user_id: str, limit: int = 10) -> List[SubmissionResponse]:
         """Get recent submission activity"""
         cursor = self.submissions_collection.find({"user_id": user_id}).sort("submitted_at", -1).limit(limit)
         submissions = []
-        
         async for submission_data in cursor:
             submission_data["id"] = str(submission_data.pop("_id"))
             submissions.append(SubmissionResponse(**submission_data))
-        
         return submissions
-    
-    async def get_detailed_progress(self, user_id: str) -> Dict[str, Any]:
-        """Get detailed progress data"""
-        # Get user stats
-        user = await self.user_service.get_user_by_id(user_id)
-        
-        # Get topic progress
-        topic_progress = await self.get_topic_progress(user_id)
-        
-        # Get recent submissions
-        recent_submissions = await self.get_recent_activity(user_id, limit=20)
-        
-        # Get submission stats
-        total_submissions = await self.submissions_collection.count_documents({"user_id": user_id})
-        solved_submissions = await self.submissions_collection.count_documents({
-            "user_id": user_id,
-            "status": "solved"
-        })
-        
-        return {
-            "user_stats": user.dict() if user else None,
-            "topic_progress": [p.dict() for p in topic_progress],
-            "recent_submissions": [s.dict() for s in recent_submissions],
-            "submission_stats": {
-                "total": total_submissions,
-                "solved": solved_submissions,
-                "success_rate": (solved_submissions / total_submissions * 100) if total_submissions > 0 else 0
-            }
-        }
-    
+
     def _mock_evaluation(self, code: str) -> bool:
-        """Mock code evaluation (in real implementation, this would run actual tests)"""
-        # Simple mock evaluation - 70% success rate
+        """Mock code evaluation for testing"""
         import random
         return random.random() > 0.3

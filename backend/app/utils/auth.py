@@ -15,12 +15,20 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against its hash"""
+    """Verify a password against its hash (with defensive 72-byte truncation)"""
+    # Defensive truncation for bcrypt 72-byte limit
+    pass_bytes = plain_password.encode('utf-8')
+    if len(pass_bytes) > 72:
+        plain_password = pass_bytes[:72].decode('utf-8', 'ignore')
     return pwd_context.verify(plain_password, hashed_password)
 
 
 def get_password_hash(password: str) -> str:
-    """Generate password hash"""
+    """Generate password hash (with defensive 72-byte truncation)"""
+    # Defensive truncation for bcrypt 72-byte limit
+    pass_bytes = password.encode('utf-8')
+    if len(pass_bytes) > 72:
+        password = pass_bytes[:72].decode('utf-8', 'ignore')
     return pwd_context.hash(password)
 
 

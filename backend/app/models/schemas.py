@@ -47,7 +47,7 @@ class UserLogin(BaseModel):
 
 class UserInDB(UserBase):
     id: str
-    username: str
+    password: str
     created_at: datetime
     updated_at: datetime
     total_solved: int = 0
@@ -56,8 +56,14 @@ class UserInDB(UserBase):
     last_solved_date: Optional[datetime] = None
 
 
-class UserResponse(UserInDB):
-    pass
+class UserResponse(UserBase):
+    id: str
+    created_at: datetime
+    updated_at: datetime
+    total_solved: int = 0
+    current_streak: int = 0
+    longest_streak: int = 0
+    last_solved_date: Optional[datetime] = None
 
 
 # Topic models
@@ -212,6 +218,12 @@ class AIFeedbackResponse(BaseModel):
     suggestions: List[str] = []
     time_complexity: Optional[str] = None
     space_complexity: Optional[str] = None
+
+
+class AIStructuredResponse(BaseModel):
+    hint: str
+    concept_explained: str
+    improvement_area: str
 
 
 # Dashboard models

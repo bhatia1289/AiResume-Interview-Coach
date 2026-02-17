@@ -3,7 +3,7 @@ AI Assistant routes with mock responses
 """
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.models.schemas import (
     AIHintRequest, AIHintResponse, 

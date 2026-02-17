@@ -14,59 +14,47 @@ function RootLayoutNav() {
     return <LoadingSpinner />;
   }
 
+  if (!isAuthenticated) {
+    return (
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: '#6366F1' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: 'bold' },
+        }}
+      >
+        <Stack.Screen
+          name="login"
+          options={{ title: 'Login', headerShown: false }}
+        />
+        <Stack.Screen
+          name="register"
+          options={{ title: 'Register', headerShown: false }}
+        />
+      </Stack>
+    );
+  }
+
   return (
     <Stack
       screenOptions={{
-        headerStyle: {
-          backgroundColor: '#6366F1',
-        },
+        headerStyle: { backgroundColor: '#6366F1' },
         headerTintColor: '#fff',
-        headerTitleStyle: {
-          fontWeight: 'bold',
-        },
+        headerTitleStyle: { fontWeight: 'bold' },
       }}
     >
-      {!isAuthenticated ? (
-        // Auth Stack
-        <>
-          <Stack.Screen
-            name="login"
-            options={{
-              title: 'Login',
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="register"
-            options={{
-              title: 'Register',
-              headerShown: false,
-            }}
-          />
-        </>
-      ) : (
-        // Main App Stack
-        <>
-          <Stack.Screen
-            name="(tabs)"
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="problems"
-            options={{
-              title: 'Problems',
-            }}
-          />
-          <Stack.Screen
-            name="problem-detail"
-            options={{
-              title: 'Problem',
-            }}
-          />
-        </>
-      )}
+      <Stack.Screen
+        name="(tabs)"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="problems"
+        options={{ title: 'Problems' }}
+      />
+      <Stack.Screen
+        name="problem-detail"
+        options={{ title: 'Problem' }}
+      />
     </Stack>
   );
 }

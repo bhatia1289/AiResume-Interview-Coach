@@ -16,6 +16,13 @@ const apiClient = axios.create({
     },
 });
 
+// Callback for logout on 401
+let onUnauthorizedCallback = null;
+
+export const setOnUnauthorizedCallback = (callback) => {
+    onUnauthorizedCallback = callback;
+};
+
 // Request interceptor - Add auth token to requests
 apiClient.interceptors.request.use(
     async (config) => {
@@ -36,15 +43,43 @@ apiClient.interceptors.request.use(
 
 // Response interceptor - Handle errors globally
 apiClient.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        // Handle cases where backend returns success: false with 200 OK
+        if (response.data && response.data.success === false) {
+            const apiError = {
+                message: response.data.message || response.data.error || 'Request failed',
+                status: response.status,
+                data: response.data
+            };
+            return Promise.reject(apiError);
+        }
+        // Standardize response structure
+        return response.data;
+    },
     async (error) => {
         if (error.response?.status === 401) {
-            // Token expired or invalid - clear storage
             await AsyncStorage.removeItem('authToken');
             await AsyncStorage.removeItem('user');
-            // You can trigger a navigation to login here if needed
+
+            if (onUnauthorizedCallback) {
+                onUnauthorizedCallback();
+            }
         }
-        return Promise.reject(error);
+
+        // Handle case where error.response is missing (e.g. network error)
+        const errorMessage = error.response?.data?.message ||
+            error.response?.data?.error ||
+            error.message ||
+            'Something went wrong';
+
+        // Return a cleaner error object
+        const apiError = {
+            message: errorMessage,
+            status: error.response?.status || 0,
+            data: error.response?.data || null
+        };
+
+        return Promise.reject(apiError);
     }
 );
 
@@ -58,8 +93,7 @@ export const authAPI = {
      * @param {Object} data - { name, email, password }
      */
     register: async (data) => {
-        const response = await apiClient.post(API_ENDPOINTS.AUTH.REGISTER, data);
-        return response.data;
+        return await apiClient.post(API_ENDPOINTS.AUTH.REGISTER, data);
     },
 
     /**
@@ -67,16 +101,14 @@ export const authAPI = {
      * @param {Object} data - { email, password }
      */
     login: async (data) => {
-        const response = await apiClient.post(API_ENDPOINTS.AUTH.LOGIN, data);
-        return response.data;
+        return await apiClient.post(API_ENDPOINTS.AUTH.LOGIN, data);
     },
 
     /**
      * Get current user profile
      */
     getMe: async () => {
-        const response = await apiClient.get(API_ENDPOINTS.AUTH.ME);
-        return response.data;
+        return await apiClient.get(API_ENDPOINTS.AUTH.ME);
     },
 };
 
@@ -89,8 +121,7 @@ export const topicsAPI = {
      * Get all DSA topics
      */
     getTopics: async () => {
-        const response = await apiClient.get(API_ENDPOINTS.TOPICS.LIST);
-        return response.data;
+        return await apiClient.get(API_ENDPOINTS.TOPICS.LIST);
     },
 
     /**
@@ -98,8 +129,7 @@ export const topicsAPI = {
      * @param {string} topicId
      */
     getTopicDetail: async (topicId) => {
-        const response = await apiClient.get(API_ENDPOINTS.TOPICS.DETAIL(topicId));
-        return response.data;
+        return await apiClient.get(API_ENDPOINTS.TOPICS.DETAIL(topicId));
     },
 };
 
@@ -109,40 +139,41 @@ export const topicsAPI = {
 
 export const problemsAPI = {
     /**
-     * Get problem details
-     * @param {string} problemId
+     * Get question details
      */
     getProblem: async (problemId) => {
-        const response = await apiClient.get(API_ENDPOINTS.PROBLEMS.DETAIL(problemId));
-        return response.data;
+        return await apiClient.get(API_ENDPOINTS.PROBLEMS.DETAIL(problemId));
     },
 
     /**
-     * Submit code solution
-     * @param {string} problemId
-     * @param {Object} data - { code, language }
+     * Submit code solution and get structured feedback
      */
     submitSolution: async (problemId, data) => {
-        const response = await apiClient.post(API_ENDPOINTS.PROBLEMS.SUBMIT(problemId), data);
-        return response.data;
+        return await apiClient.post(API_ENDPOINTS.PROBLEMS.SUBMIT, {
+            ...data,
+            question_id: problemId
+        });
     },
 
     /**
-     * Request AI hint
-     * @param {string} problemId
+     * Request structured AI hint (hint, concept, improvement)
      */
-    getHint: async (problemId) => {
-        const response = await apiClient.post(API_ENDPOINTS.PROBLEMS.HINT(problemId));
-        return response.data;
+    getHint: async (problemId, userCode = "") => {
+        return await apiClient.post(API_ENDPOINTS.PROBLEMS.HINT, {
+            question_id: problemId,
+            context: userCode || "I'm stuck on this problem."
+        });
     },
 
     /**
-     * Request AI explanation
-     * @param {string} problemId
+     * Request detailed AI explanation
      */
-    getExplanation: async (problemId) => {
-        const response = await apiClient.post(API_ENDPOINTS.PROBLEMS.EXPLAIN(problemId));
-        return response.data;
+    getExplanation: async (problemId, code = "", language = "python") => {
+        return await apiClient.post(API_ENDPOINTS.PROBLEMS.EXPLAIN, {
+            question_id: problemId,
+            code: code,
+            language: language
+        });
     },
 };
 
@@ -155,16 +186,14 @@ export const progressAPI = {
      * Get dashboard data
      */
     getDashboard: async () => {
-        const response = await apiClient.get(API_ENDPOINTS.PROGRESS.DASHBOARD);
-        return response.data;
+        return await apiClient.get(API_ENDPOINTS.PROGRESS.DASHBOARD);
     },
 
     /**
      * Get learning roadmap
      */
     getRoadmap: async () => {
-        const response = await apiClient.get(API_ENDPOINTS.PROGRESS.ROADMAP);
-        return response.data;
+        return await apiClient.get(API_ENDPOINTS.PROGRESS.ROADMAP);
     },
 
     /**
@@ -172,16 +201,14 @@ export const progressAPI = {
      * @param {Object} data - { daily_problems, topics }
      */
     setGoals: async (data) => {
-        const response = await apiClient.post(API_ENDPOINTS.PROGRESS.GOALS, data);
-        return response.data;
+        return await apiClient.post(API_ENDPOINTS.PROGRESS.GOALS, data);
     },
 
     /**
      * Get current goals
      */
     getGoals: async () => {
-        const response = await apiClient.get(API_ENDPOINTS.PROGRESS.GOALS);
-        return response.data;
+        return await apiClient.get(API_ENDPOINTS.PROGRESS.GOALS);
     },
 };
 

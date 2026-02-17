@@ -1,104 +1,130 @@
 """
-AI service with mock responses
+AI service using OpenAI-compatible API (OpenAI or LM Studio) 
+Returns structured learning data for DSA problems.
 """
 
+import logging
+import json
 import random
-from typing import List, Dict, Any
-from datetime import datetime
+from typing import List, Dict, Any, Optional
+import openai
+from app.config import settings
+from app.models.schemas import AIFeedbackResponse, AIStructuredResponse
 
-from app.models.schemas import AIFeedbackResponse
-
+logger = logging.getLogger(__name__)
 
 class AIService:
     def __init__(self, database):
         self.db = database
-    
-    async def generate_hint(self, question_id: str, context: str, user_id: str) -> str:
-        """Generate AI-powered hint for a question (mock implementation)"""
+        self.client = None
         
-        # Mock hint templates based on different patterns
-        hint_templates = [
-            "Consider using a hash map to store and quickly look up values.",
-            "Think about the time complexity - can you optimize it to O(n log n)?",
-            "Try using two pointers approach for this problem.",
-            "Consider breaking the problem into smaller subproblems.",
-            "What if you sort the array first? Would that help?",
-            "Consider using dynamic programming for optimal substructure.",
-            "Think about edge cases - what happens with empty input?",
-            "Try using a stack or queue data structure.",
-            "Consider the sliding window technique for this problem.",
-            "What if you use recursion with memoization?"
-        ]
+        # Initialize client if API key or local base URL is provided
+        if settings.OPENAI_API_KEY or "localhost" in settings.OPENAI_BASE_URL:
+            try:
+                self.client = openai.AsyncOpenAI(
+                    api_key=settings.OPENAI_API_KEY or "local-llm",
+                    base_url=settings.OPENAI_BASE_URL
+                )
+            except Exception as e:
+                logger.error(f"Failed to initialize AI client: {e}")
+
+    async def generate_hint(self, question: str, user_code: str) -> AIStructuredResponse:
+        """
+        Generate a structured AI hint including concept explanation and improvement areas.
+        """
+        prompt = f"""
+        You are a DSA expert. A user is stuck on this question.
+        Question: {question}
+        User's Current Code: {user_code}
         
-        # Select a random hint based on context
-        hint = random.choice(hint_templates)
+        Provide a response in EXACTLY this JSON format:
+        {{
+            "hint": "A small nudge helping them move forward without giving the answer.",
+            "concept_explained": "A brief explanation of the core concept they are struggling with.",
+            "improvement_area": "Where their current code can be improved (e.g., logic, complexity, edge cases)."
+        }}
+        """
         
-        # Add some variation based on the context
-        if "array" in context.lower():
-            hint += " Pay special attention to array boundaries."
-        elif "tree" in context.lower():
-            hint += " Consider tree traversal methods."
-        elif "graph" in context.lower():
-            hint += " Think about BFS or DFS approaches."
+        if self.client:
+            try:
+                response = await self.client.chat.completions.create(
+                    model=settings.OPENAI_MODEL,
+                    messages=[
+                        {"role": "system", "content": "You are a specialized DSA tutor. Always respond in JSON format."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    response_format={{ "type": "json_object" }} if "gpt-4" in settings.OPENAI_MODEL or "json" in settings.OPENAI_MODEL.lower() else None
+                )
+                raw_content = response.choices[0].message.content.strip()
+                parsed_json = json.loads(self._clean_json(raw_content))
+                
+                return AIStructuredResponse(
+                    hint=parsed_json.get("hint", ""),
+                    concept_explained=parsed_json.get("concept_explained", ""),
+                    improvement_area=parsed_json.get("improvement_area", "")
+                )
+            except Exception as e:
+                logger.error(f"AI Hint Error: {e}")
         
-        return hint
-    
-    async def generate_feedback(
-        self, 
-        question_id: str, 
-        code: str, 
-        language: str, 
-        user_id: str
-    ) -> AIFeedbackResponse:
-        """Generate AI feedback on code submission (mock implementation)"""
+        # Fallback to smart mock if AI fails or isn't configured
+        return self._get_mock_structured_response("hint", question)
+
+    async def generate_feedback(self, question: str, user_code: str) -> AIStructuredResponse:
+        """
+        Generate detailed feedback on code submission in a structured format.
+        """
+        prompt = f"""
+        Analyze this DSA solution.
+        Question: {question}
+        User's Submission: {user_code}
         
-        # Mock feedback based on code analysis
-        feedback_templates = [
-            "Good attempt! Your code shows understanding of the problem.",
-            "Nice solution! Consider optimizing for better time complexity.",
-            "Great job! Your implementation is clean and readable.",
-            "Well done! Think about handling edge cases more robustly.",
-            "Excellent approach! You might want to add more comments."
-        ]
+        Provide feedback in EXACTLY this JSON format:
+        {{
+            "hint": "Final summary feedback for the user.",
+            "concept_explained": "The logic or pattern they correctly or incorrectly used.",
+            "improvement_area": "Specific technical improvements needed."
+        }}
+        """
         
-        suggestions_templates = [
-            "Consider using more descriptive variable names.",
-            "Add input validation to handle edge cases.",
-            "Think about the space complexity of your solution.",
-            "Consider using built-in functions for better performance.",
-            "Add error handling for invalid inputs."
-        ]
-        
-        time_complexities = ["O(1)", "O(log n)", "O(n)", "O(n log n)", "O(n²)", "O(2^n)"]
-        space_complexities = ["O(1)", "O(n)", "O(log n)", "O(n²)"]
-        
-        # Generate mock feedback
-        feedback = random.choice(feedback_templates)
-        suggestions = random.sample(suggestions_templates, 2)
-        
-        # Mock complexity analysis
-        time_complexity = random.choice(time_complexities)
-        space_complexity = random.choice(space_complexities)
-        
-        return AIFeedbackResponse(
-            feedback=feedback,
-            suggestions=suggestions,
-            time_complexity=time_complexity,
-            space_complexity=space_complexity
-        )
-    
-    async def analyze_code_quality(self, code: str, language: str) -> Dict[str, Any]:
-        """Analyze code quality (mock implementation)"""
-        
-        # Mock code quality metrics
-        return {
-            "readability_score": random.randint(60, 95),
-            "complexity_score": random.randint(30, 80),
-            "test_coverage": random.randint(50, 90),
-            "code_smells": random.randint(0, 3),
-            "recommendations": [
-                "Consider extracting this logic into a separate function.",
-                "This loop could be optimized using a more efficient algorithm.",
-                "Add unit tests for this function."
-            ]
-        }
+        if self.client:
+            try:
+                response = await self.client.chat.completions.create(
+                    model=settings.OPENAI_MODEL,
+                    messages=[
+                        {"role": "system", "content": "You are a professional code reviewer. Respond ONLY with JSON."},
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                raw_content = response.choices[0].message.content.strip()
+                parsed_json = json.loads(self._clean_json(raw_content))
+                
+                return AIStructuredResponse(
+                    hint=parsed_json.get("hint", ""),
+                    concept_explained=parsed_json.get("concept_explained", ""),
+                    improvement_area=parsed_json.get("improvement_area", "")
+                )
+            except Exception as e:
+                logger.error(f"AI Feedback Error: {e}")
+
+        return self._get_mock_structured_response("feedback", question)
+
+    def _clean_json(self, content: str) -> str:
+        """Removes markdown code blocks from the string if present"""
+        if content.startswith("```"):
+            return content.split("```")[1].replace("json", "").strip()
+        return content
+
+    def _get_mock_structured_response(self, mode: str, question: str) -> AIStructuredResponse:
+        """Fallback mock for stability"""
+        if mode == "hint":
+            return AIStructuredResponse(
+                hint="Try using two pointers to reduce complexity from O(n^2) to O(n).",
+                concept_explained="Two-pointer technique is efficient for sorted array problems.",
+                improvement_area="Current nested loop is causing time limit issues."
+            )
+        else:
+            return AIStructuredResponse(
+                hint="Good approach! You've correctly identified the base case.",
+                concept_explained="Recursion with memoization helps avoid redundant calculations.",
+                improvement_area="Consider handling null/empty inputs as an edge case."
+            )

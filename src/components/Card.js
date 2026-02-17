@@ -3,8 +3,8 @@
  * Reusable card container with shadow
  */
 
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
-import { BORDER_RADIUS, COLORS, SHADOWS, SPACING } from '../constants/theme';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/theme';
 
 const Card = ({
     children,
@@ -46,6 +46,42 @@ const styles = StyleSheet.create({
     },
     paddingLg: {
         padding: SPACING.lg,
+    },
+});
+
+export const EmptyState = ({
+    icon = '🔍',
+    title = 'No Data Found',
+    message = 'Try again later or refresh the page.',
+    style
+}) => (
+    <View style={[emptyStyles.container, style]}>
+        <Text style={emptyStyles.icon}>{icon}</Text>
+        <Text style={emptyStyles.title}>{title}</Text>
+        <Text style={emptyStyles.message}>{message}</Text>
+    </View>
+);
+
+const emptyStyles = StyleSheet.create({
+    container: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: SPACING.xl,
+    },
+    icon: {
+        fontSize: 48,
+        marginBottom: SPACING.md,
+    },
+    title: {
+        fontSize: TYPOGRAPHY.fontSize.lg,
+        fontWeight: TYPOGRAPHY.fontWeight.semibold,
+        color: COLORS.text,
+        marginBottom: SPACING.xs,
+    },
+    message: {
+        fontSize: TYPOGRAPHY.fontSize.sm,
+        color: COLORS.textSecondary,
+        textAlign: 'center',
     },
 });
 

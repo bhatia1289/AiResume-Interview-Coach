@@ -24,8 +24,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
     
-    # OpenAI
+    # OpenAI / Local LLM
     OPENAI_API_KEY: Optional[str] = None
+    OPENAI_BASE_URL: str = "https://api.openai.com/v1"
+    OPENAI_MODEL: str = "gpt-3.5-turbo"
     
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 100

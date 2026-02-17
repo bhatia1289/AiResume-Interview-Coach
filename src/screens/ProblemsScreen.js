@@ -142,9 +142,10 @@ const ProblemsScreen = () => {
                     </View>
                 }
                 ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <Text style={styles.emptyText}>No problems available</Text>
-                    </View>
+                    <EmptyState
+                        title="No Problems Found"
+                        message="There are no problems listed for this topic yet."
+                    />
                 }
             />
         </View>

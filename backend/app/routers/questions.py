@@ -2,6 +2,7 @@
 Questions routes
 """
 
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.security import HTTPBearer
 

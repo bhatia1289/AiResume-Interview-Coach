@@ -4,39 +4,40 @@
  */
 
 // Backend API base URL
-// Change this to your backend server URL when deployed
-export const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:8000/api'  // Development
+// Using local IP 192.168.1.38 to ensure connectivity across all devices on your Wi-Fi
+export const API_BASE_URL = __DEV__
+  ? 'http://192.168.1.38:8000/api'  // Development (Local Network IP)
   : 'https://your-production-api.com/api';  // Production
 
 // API endpoints
 export const API_ENDPOINTS = {
   // Authentication
   AUTH: {
-    LOGIN: '/auth/login',
-    REGISTER: '/auth/register',
-    ME: '/auth/me',
+    LOGIN: 'auth/login',
+    REGISTER: 'auth/register',
+    ME: 'auth/me',
   },
-  
+
   // Topics
   TOPICS: {
-    LIST: '/topics',
-    DETAIL: (id) => `/topics/${id}`,
+    LIST: 'topics',
+    DETAIL: (id) => `topics/${id}`,
   },
-  
-  // Problems
+
+  // Problems (Questions in backend)
   PROBLEMS: {
-    DETAIL: (id) => `/problems/${id}`,
-    SUBMIT: (id) => `/problems/${id}/submit`,
-    HINT: (id) => `/problems/${id}/hint`,
-    EXPLAIN: (id) => `/problems/${id}/explain`,
+    LIST: 'questions',
+    DETAIL: (id) => `questions/${id}`,
+    SUBMIT: 'progress/submission',
+    HINT: 'ai/hint',
+    EXPLAIN: 'ai/feedback',
   },
-  
+
   // Progress
   PROGRESS: {
-    DASHBOARD: '/progress/dashboard',
-    ROADMAP: '/progress/roadmap',
-    GOALS: '/progress/goals',
+    DASHBOARD: 'progress/dashboard',
+    ROADMAP: 'progress/progress',
+    GOALS: 'daily-goals',
   },
 };
 
