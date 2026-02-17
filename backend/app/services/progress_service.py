@@ -166,10 +166,15 @@ class ProgressService:
         pipeline = [
             {"$match": {"user_id": user_id}},
             {
+                "$addFields": {
+                    "topic_id_oid": {"$toObjectId": "$topic_id"}
+                }
+            },
+            {
                 "$lookup": {
                     "from": "topics",
-                    "localField": "topic_id",
-                    "foreignField": "id",
+                    "localField": "topic_id_oid",
+                    "foreignField": "_id",
                     "as": "topic_info"
                 }
             },
@@ -193,9 +198,26 @@ class ProgressService:
         """Identify topics where success rate < 60% using aggregation"""
         pipeline = [
             {"$match": {"user_id": user_id}},
+            # Convert question_id string to ObjectId for lookup
+            {
+                "$addFields": {
+                    "question_id_oid": {"$toObjectId": "$question_id"}
+                }
+            },
+            # Join with questions to get topic_id
+            {
+                "$lookup": {
+                    "from": "questions",
+                    "localField": "question_id_oid",
+                    "foreignField": "_id",
+                    "as": "question_info"
+                }
+            },
+            {"$unwind": "$question_info"},
+            # Group by topic_id from the question
             {
                 "$group": {
-                    "_id": "$topic_id",
+                    "_id": "$question_info.topic_id",
                     "total_attempts": {"$sum": 1},
                     "solved_count": {
                         "$sum": {"$cond": [{"$eq": ["$status", "solved"]}, 1, 0]}
@@ -209,11 +231,17 @@ class ProgressService:
                 }
             },
             {"$match": {"accuracy": {"$lt": 0.6}}},
+            # Lookup topic details
+            {
+                "$addFields": {
+                    "topic_id_oid": {"$toObjectId": "$topic_id"}
+                }
+            },
             {
                 "$lookup": {
                     "from": "topics",
-                    "localField": "topic_id",
-                    "foreignField": "id",
+                    "localField": "topic_id_oid",
+                    "foreignField": "_id",
                     "as": "topic_info"
                 }
             },
@@ -229,6 +257,89 @@ class ProgressService:
         ]
         cursor = self.submissions_collection.aggregate(pipeline)
         return await cursor.to_list(length=10)
+
+    async def get_detailed_progress(self, user_id: str) -> Dict[str, Any]:
+        """Get detailed learning progress and roadmap for the Progress screen"""
+        print(f"DEBUG: get_detailed_progress called for user {user_id}")
+        user = await self.user_service.get_user_by_id(user_id)
+        if not user:
+            raise ValueError("User not found")
+            
+        # 1. Total solved count
+        total_solved = user.total_solved
+        
+        # 2. Get topic progress
+        topic_progress = await self.get_topic_progress_with_names(user_id)
+        
+        # 3. Calculate accuracy
+        total_submissions = await self.submissions_collection.count_documents({"user_id": user_id})
+        solved_submissions = await self.submissions_collection.count_documents({
+            "user_id": user_id,
+            "status": "solved"
+        })
+        accuracy = (solved_submissions / total_submissions * 100) if total_submissions > 0 else 0
+        
+        # 4. Mock Roadmap phases (matched to Progressive Learning phases)
+        phases = [
+            {
+                "name": "Phase 1: Foundation",
+                "description": "Master basic data structures and logic",
+                "completed": total_solved >= 5,
+                "topics": [
+                    {
+                        "name": "Arrays", 
+                        "completed": any(t["name"] == "Arrays" and t["percentage"] >= 100 for t in topic_progress),
+                        "progress": next((t["percentage"] for t in topic_progress if t["name"] == "Arrays"), 0)
+                    },
+                    {
+                        "name": "Strings", 
+                        "completed": any(t["name"] == "Strings" and t["percentage"] >= 100 for t in topic_progress),
+                        "progress": next((t["percentage"] for t in topic_progress if t["name"] == "Strings"), 0)
+                    }
+                ]
+            },
+            {
+                "name": "Phase 2: Linked Structures",
+                "description": "Lists, Stacks, and Queues",
+                "completed": total_solved >= 15,
+                "topics": [
+                    {
+                        "name": "Linked List", 
+                        "completed": any(t["name"] == "Linked List" and t["percentage"] >= 100 for t in topic_progress),
+                        "progress": next((t["percentage"] for t in topic_progress if t["name"] == "Linked List"), 0)
+                    },
+                    {"name": "Stack", "completed": False, "progress": 0},
+                    {"name": "Queue", "completed": False, "progress": 0}
+                ]
+            },
+            {
+                "name": "Phase 3: Trees & Graphs",
+                "description": "Non-linear data structures",
+                "completed": total_solved >= 30,
+                "topics": [
+                    {"name": "Trees", "completed": False, "progress": 0},
+                    {"name": "Graphs", "completed": False, "progress": 0}
+                ]
+            }
+        ]
+        
+        # 5. Achievements
+        achievements = []
+        if total_solved >= 1:
+            achievements.append({"name": "First Step", "description": "Solved your first problem!", "icon": "🎓"})
+        if user.current_streak >= 3:
+            achievements.append({"name": "Consistent Learner", "description": "3-day solving streak!", "icon": "🔥"})
+        if total_solved >= 10:
+            achievements.append({"name": "DSA Enthusiast", "description": "Solved 10 problems", "icon": "🌟"})
+            
+        return {
+            "phases": phases,
+            "totalProblems": 100,
+            "solvedProblems": total_solved,
+            "accuracy": round(accuracy, 1),
+            "streak": user.current_streak,
+            "achievements": achievements
+        }
 
     def _calculate_overall_completion(self, topics_progress: List[Dict[str, Any]]) -> float:
         if not topics_progress: return 0

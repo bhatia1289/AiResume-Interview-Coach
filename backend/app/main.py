@@ -11,7 +11,7 @@ import logging
 
 from app.config import settings
 from app.database import connect_to_mongo, close_mongo_connection
-from app.routers import auth, topics, questions, ai, progress, daily_goals
+from app.routers import auth, topics, questions, ai, progress, daily_goals, roadmap
 from app.middleware.rate_limiter import RateLimitMiddleware
 from app.middleware.error_handler import ErrorHandlerMiddleware
 
@@ -62,6 +62,7 @@ app.include_router(questions.router, prefix="/api/questions", tags=["Questions"]
 app.include_router(ai.router, prefix="/api/ai", tags=["AI Assistant"])
 app.include_router(progress.router, prefix="/api/progress", tags=["Progress"])
 app.include_router(daily_goals.router, prefix="/api/daily-goals", tags=["Daily Goals"])
+app.include_router(roadmap.router, prefix="/api/roadmap", tags=["Roadmap"])
 
 
 @app.get("/")

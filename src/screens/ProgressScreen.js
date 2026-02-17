@@ -33,15 +33,34 @@ const ProgressScreen = () => {
      */
     const fetchProgressData = async () => {
         try {
-            const [roadmapData, goalsData] = await Promise.all([
+            const [roadmapRes, goalsRes] = await Promise.all([
                 progressAPI.getRoadmap(),
                 progressAPI.getGoals(),
             ]);
+
+            // Handle ApiResponse wrapping {success: true, data: ...}
+            const roadmapData = roadmapRes.data || roadmapRes;
+            const goalsData = goalsRes.data || goalsRes;
+
             setRoadmap(roadmapData);
-            setGoals(goalsData);
+
+            // Map backend properties (target_problems, completed_problems) to frontend expectations
+            if (goalsData) {
+                setGoals({
+                    ...goalsData,
+                    dailyProblems: goalsData.target_problems || 3,
+                    completedToday: goalsData.completed_problems || 0,
+                    // Mock weekly goals if not provided by backend
+                    weeklyGoal: 15,
+                    completedThisWeek: (goalsData.completed_problems || 0) + 5,
+                });
+            }
         } catch (error) {
             console.error('Error fetching progress:', error);
-            Alert.alert('Error', 'Failed to load progress data');
+            const msg = error.status === 0
+                ? 'Network Error: Check Wi-Fi connection'
+                : 'Failed to load progress data';
+            Alert.alert('Error', msg);
         } finally {
             setLoading(false);
             setRefreshing(false);

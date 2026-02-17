@@ -61,7 +61,10 @@ async def create_indexes():
     await database.submissions.create_index("submitted_at")
     
     # Progress collection indexes
-    await database.progress.create_index("user_id", unique=True)
+    # Note: user_id unique index was causing conflict with compound indexes in some versions.
+    # Allowing duplicate user_id in progress (one per topic) is actually correct for our schema.
+    # If we want unique per (user_id, topic_id), we should use a compound index.
+    await database.progress.create_index([("user_id", 1), ("topic_id", 1)], unique=True)
     
     # Daily goals collection indexes
     await database.daily_goals.create_index([("user_id", 1), ("date", 1)], unique=True)

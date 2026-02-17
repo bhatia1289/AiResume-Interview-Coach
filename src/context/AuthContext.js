@@ -107,14 +107,19 @@ export const AuthProvider = ({ children }) => {
      * Logout user
      */
     const logout = async () => {
+        console.log('Initiating logout...');
         try {
-            // Clear storage
-            await AsyncStorage.removeItem('authToken');
-            await AsyncStorage.removeItem('user');
-
-            // Clear state
+            // Clear state first for immediate UI feedback
             setAuthToken(null);
             setUser(null);
+
+            // Clear storage
+            await Promise.all([
+                AsyncStorage.removeItem('authToken'),
+                AsyncStorage.removeItem('user')
+            ]);
+
+            console.log('Logout successful: Storage and state cleared');
         } catch (error) {
             console.error('Logout error:', error);
         }

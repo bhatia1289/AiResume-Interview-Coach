@@ -13,7 +13,8 @@ import {
     View
 } from 'react-native';
 import Button from '../components/Button';
-import Card, { EmptyState } from '../components/Card';
+import Card from '../components/Card';
+import EmptyState from '../components/EmptyState';
 import Input from '../components/Input';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { COLORS, SPACING } from '../constants/theme';
@@ -36,7 +37,8 @@ const ProblemDetailScreen = () => {
 
     const fetchProblem = async () => {
         try {
-            const data = await problemsAPI.getProblem(problemId);
+            const res = await problemsAPI.getProblem(problemId);
+            const data = res.data || res;
             setProblem(data);
             if (data.code_template) setCode(data.code_template);
         } catch (err) {
@@ -51,8 +53,9 @@ const ProblemDetailScreen = () => {
         setHintLoading(true);
         setAiResult(null);
         try {
-            const result = await problemsAPI.getHint(problemId, code);
-            setAiResult({ ...result, type: 'hint' });
+            const res = await problemsAPI.getHint(problemId, code);
+            const data = res.data || res;
+            setAiResult({ ...data, type: 'hint' });
         } catch (err) {
             Alert.alert('AI Offline', 'Could not reach the AI tutor. Please try again later.');
         } finally {
@@ -65,8 +68,9 @@ const ProblemDetailScreen = () => {
 
         setSubmitting(true);
         try {
-            const result = await problemsAPI.submitSolution(problemId, { code, language: 'python' });
-            setAiResult({ ...result, type: 'feedback' });
+            const res = await problemsAPI.submitSolution(problemId, { code, language: 'python' });
+            const data = res.data || res;
+            setAiResult({ ...data, type: 'feedback' });
             Alert.alert('Analysis Complete', 'Swipe down to see detailed feedback!');
         } catch (err) {
             Alert.alert('Error', 'Submission failed. Check your internet.');
@@ -82,10 +86,16 @@ const ProblemDetailScreen = () => {
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             {/* Header info */}
             <Card style={styles.headerCard}>
-                <Text style={styles.title}>{problem?.title}</Text>
-                <View style={[styles.badge, { backgroundColor: COLORS[problem?.difficulty?.toLowerCase()] + '20' }]}>
-                    <Text style={[styles.badgeText, { color: COLORS[problem?.difficulty?.toLowerCase()] }]}>
-                        {problem?.difficulty?.toUpperCase()}
+                <Text style={styles.title}>{problem?.title || 'Problem Details'}</Text>
+                <View style={[
+                    styles.badge,
+                    { backgroundColor: (COLORS[problem?.difficulty?.toLowerCase()] || COLORS.primary) + '20' }
+                ]}>
+                    <Text style={[
+                        styles.badgeText,
+                        { color: COLORS[problem?.difficulty?.toLowerCase()] || COLORS.primary }
+                    ]}>
+                        {(problem?.difficulty || 'Unknown').toUpperCase()}
                     </Text>
                 </View>
             </Card>

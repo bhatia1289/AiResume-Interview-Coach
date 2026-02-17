@@ -1,22 +1,31 @@
 /**
  * Problems Screen
- * List of problems for a specific topic
+ * List of problems for a specific topic with difficulty filters
  */
 
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+    Alert,
     FlatList,
     RefreshControl,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View
 } from 'react-native';
 import Card from '../components/Card';
+import EmptyState from '../components/EmptyState';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
-import { topicsAPI } from '../services/api';
-import { mockProblemsData } from '../utils/mockData';
+import { problemsAPI } from '../services/api';
+
+const DIFFICULTIES = [
+    { key: 'all', label: 'All', color: COLORS.primary },
+    { key: 'easy', label: 'Easy', color: COLORS.easy },
+    { key: 'medium', label: 'Medium', color: COLORS.medium },
+    { key: 'hard', label: 'Hard', color: COLORS.hard },
+];
 
 const ProblemsScreen = () => {
     const router = useRouter();
@@ -25,31 +34,52 @@ const ProblemsScreen = () => {
     const [problems, setProblems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [selectedDifficulty, setSelectedDifficulty] = useState('all');
 
     useEffect(() => {
         fetchProblems();
-    }, [topicId]);
+    }, [topicId, selectedDifficulty]);
 
     /**
-     * Fetch problems for the topic
-     * Falls back to mock data if API is unavailable
+     * Fetch problems for the topic with difficulty filter
      */
-    const fetchProblems = async () => {
+    const fetchProblems = useCallback(async () => {
+        if (!topicName) {
+            console.error('No topic name provided');
+            setLoading(false);
+            return;
+        }
+
         try {
-            const data = await topicsAPI.getTopicDetail(topicId);
-            setProblems(data.problems || []);
+            setLoading(true);
+            console.log(`Fetching problems for topic: ${topicName} with difficulty: ${selectedDifficulty}`);
+            
+            // Use the problemsAPI to fetch LeetCode problems
+            const fetchedProblems = await problemsAPI.getProblemsByTopic(
+                topicName,
+                selectedDifficulty,
+                50 // Limit to 50 problems
+            );
+            
+            console.log(`Fetched ${fetchedProblems.length} problems for ${topicName}`);
+            
+            // Ensure all problems have unique IDs
+            const problemsWithIds = fetchedProblems.map((problem, index) => ({
+                ...problem,
+                id: problem.id || problem.titleSlug || `problem-${index}`,
+            }));
+            
+            console.log('Problems with IDs:', problemsWithIds.map(p => ({ id: p.id, name: p.name })));
+            setProblems(problemsWithIds);
         } catch (error) {
             console.error('Error fetching problems:', error);
-            console.log('Using mock problems data for development...');
-
-            // Use mock data when backend is not available
-            const mockData = mockProblemsData[topicId];
-            setProblems(mockData?.problems || []);
+            Alert.alert('Error', 'Failed to load problems from LeetCode API');
+            setProblems([]);
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
-    };
+    }, [topicName, selectedDifficulty]);
 
     /**
      * Handle pull to refresh
@@ -65,8 +95,20 @@ const ProblemsScreen = () => {
     const handleProblemPress = (problem) => {
         router.push({
             pathname: '/problem-detail',
-            params: { problemId: problem.id },
+            params: { 
+                problemId: problem.id,
+                problemTitle: problem.name,
+                problemSlug: problem.titleSlug || problem.title_slug || problem.id
+            },
         });
+    };
+
+    /**
+     * Handle difficulty filter change
+     */
+    const handleDifficultyFilter = (difficulty) => {
+        console.log(`Filtering problems by difficulty: ${difficulty}`);
+        setSelectedDifficulty(difficulty);
     };
 
     /**
@@ -86,6 +128,35 @@ const ProblemsScreen = () => {
     };
 
     /**
+     * Render difficulty filter buttons
+     */
+    const renderDifficultyFilters = () => (
+        <View style={styles.filterContainer}>
+            {DIFFICULTIES.map((difficulty) => (
+                <TouchableOpacity
+                    key={difficulty.key}
+                    style={[
+                        styles.filterButton,
+                        selectedDifficulty === difficulty.key && styles.filterButtonActive,
+                        { borderColor: difficulty.color }
+                    ]}
+                    onPress={() => handleDifficultyFilter(difficulty.key)}
+                >
+                    <Text
+                        style={[
+                            styles.filterButtonText,
+                            selectedDifficulty === difficulty.key && styles.filterButtonTextActive,
+                            { color: selectedDifficulty === difficulty.key ? difficulty.color : COLORS.text }
+                        ]}
+                    >
+                        {difficulty.label}
+                    </Text>
+                </TouchableOpacity>
+            ))}
+        </View>
+    );
+
+    /**
      * Render problem card
      */
     const renderProblem = ({ item }) => (
@@ -96,8 +167,8 @@ const ProblemsScreen = () => {
         >
             <View style={styles.problemHeader}>
                 <View style={styles.problemInfo}>
-                    <Text style={styles.problemTitle}>{item.title}</Text>
-                    {item.solved && (
+                    <Text style={styles.problemTitle}>{item.name}</Text>
+                    {item.isSolved && (
                         <Text style={styles.solvedBadge}>✓ Solved</Text>
                     )}
                 </View>
@@ -116,6 +187,12 @@ const ProblemsScreen = () => {
                     {item.description}
                 </Text>
             )}
+
+            {item.attempts > 0 && (
+                <Text style={styles.attemptsText}>
+                    Attempts: {item.attempts}
+                </Text>
+            )}
         </Card>
     );
 
@@ -128,23 +205,26 @@ const ProblemsScreen = () => {
             <FlatList
                 data={problems}
                 renderItem={renderProblem}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item, index) => item.id || item.titleSlug || item.title_slug || `problem-${index}`}
                 contentContainerStyle={styles.listContent}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                 }
                 ListHeaderComponent={
-                    <View style={styles.header}>
-                        <Text style={styles.title}>{topicName}</Text>
-                        <Text style={styles.subtitle}>
-                            {problems.length} problem{problems.length !== 1 ? 's' : ''}
-                        </Text>
+                    <View>
+                        <View style={styles.header}>
+                            <Text style={styles.title}>{topicName}</Text>
+                            <Text style={styles.subtitle}>
+                                {problems.length} problem{problems.length !== 1 ? 's' : ''}
+                            </Text>
+                        </View>
+                        {renderDifficultyFilters()}
                     </View>
                 }
                 ListEmptyComponent={
                     <EmptyState
-                        title="No Problems Found"
-                        message="There are no problems listed for this topic yet."
+                        message={`No ${selectedDifficulty === 'all' ? '' : selectedDifficulty + ' '}problems found for ${topicName}`}
+                        icon="book-open-outline"
                     />
                 }
             />
@@ -158,7 +238,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.background,
     },
     listContent: {
-        padding: SPACING.lg,
+        padding: SPACING.md,
     },
     header: {
         marginBottom: SPACING.lg,
@@ -170,11 +250,41 @@ const styles = StyleSheet.create({
         marginBottom: SPACING.xs,
     },
     subtitle: {
-        fontSize: TYPOGRAPHY.fontSize.base,
+        fontSize: TYPOGRAPHY.fontSize.md,
         color: COLORS.textSecondary,
+        marginBottom: SPACING.md,
+    },
+    filterContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: SPACING.sm,
+        marginBottom: SPACING.lg,
+    },
+    filterButton: {
+        paddingHorizontal: SPACING.md,
+        paddingVertical: SPACING.sm,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        backgroundColor: COLORS.surface,
+        minWidth: 60,
+        alignItems: 'center',
+    },
+    filterButtonActive: {
+        backgroundColor: COLORS.primary + '10',
+        borderWidth: 2,
+    },
+    filterButtonText: {
+        fontSize: TYPOGRAPHY.fontSize.sm,
+        fontWeight: TYPOGRAPHY.fontWeight.medium,
+        color: COLORS.text,
+    },
+    filterButtonTextActive: {
+        fontWeight: TYPOGRAPHY.fontWeight.bold,
     },
     problemCard: {
         marginBottom: SPACING.md,
+        padding: SPACING.md,
     },
     problemHeader: {
         flexDirection: 'row',
@@ -187,15 +297,15 @@ const styles = StyleSheet.create({
         marginRight: SPACING.sm,
     },
     problemTitle: {
-        fontSize: TYPOGRAPHY.fontSize.base,
+        fontSize: TYPOGRAPHY.fontSize.lg,
         fontWeight: TYPOGRAPHY.fontWeight.semibold,
         color: COLORS.text,
         marginBottom: SPACING.xs,
     },
     solvedBadge: {
-        fontSize: TYPOGRAPHY.fontSize.xs,
+        fontSize: TYPOGRAPHY.fontSize.sm,
         color: COLORS.success,
-        fontWeight: TYPOGRAPHY.fontWeight.medium,
+        fontWeight: TYPOGRAPHY.fontWeight.bold,
     },
     difficultyBadge: {
         paddingHorizontal: SPACING.sm,
@@ -204,23 +314,20 @@ const styles = StyleSheet.create({
     },
     difficultyText: {
         fontSize: TYPOGRAPHY.fontSize.xs,
-        color: COLORS.surface,
-        fontWeight: TYPOGRAPHY.fontWeight.semibold,
-        textTransform: 'uppercase',
+        fontWeight: TYPOGRAPHY.fontWeight.bold,
+        color: COLORS.white,
+        textTransform: 'capitalize',
     },
     problemDescription: {
         fontSize: TYPOGRAPHY.fontSize.sm,
         color: COLORS.textSecondary,
         lineHeight: 20,
+        marginBottom: SPACING.sm,
     },
-    emptyContainer: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: SPACING['3xl'],
-    },
-    emptyText: {
-        fontSize: TYPOGRAPHY.fontSize.base,
-        color: COLORS.textSecondary,
+    attemptsText: {
+        fontSize: TYPOGRAPHY.fontSize.xs,
+        color: COLORS.textLight,
+        fontStyle: 'italic',
     },
 });
 

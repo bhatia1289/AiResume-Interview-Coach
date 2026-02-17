@@ -6,7 +6,8 @@ import {
     Text,
     View
 } from 'react-native';
-import Card, { EmptyState } from '../components/Card';
+import Card from '../components/Card';
+import EmptyState from '../components/EmptyState';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ProgressBar from '../components/ProgressBar';
 import { COLORS, SPACING } from '../constants/theme';
@@ -24,11 +25,14 @@ const DashboardScreen = () => {
         if (showLoading) setLoading(true);
         setError(null);
         try {
-            const data = await progressAPI.getDashboard();
-            setDashboardData(data);
+            const res = await progressAPI.getDashboard();
+            setDashboardData(res.data || res);
         } catch (err) {
             console.error('Dashboard Error:', err);
-            setError(err.message || 'Failed to connect to server');
+            const msg = err.status === 0
+                ? 'Network Error: Check if phone and PC are on the same Wi-Fi'
+                : (err.message || 'Failed to connect to server');
+            setError(msg);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -61,7 +65,7 @@ const DashboardScreen = () => {
             {/* Header section */}
             <View style={styles.header}>
                 <Text style={styles.greeting}>Hey {user?.name?.split(' ')[0]}! 👋</Text>
-                <Text style={styles.subtitle}>Let's master some algorithms today.</Text>
+                <Text style={styles.subtitle}>Let&apos;s master some algorithms today.</Text>
             </View>
 
             {/* Error State */}
@@ -87,7 +91,7 @@ const DashboardScreen = () => {
             <Card style={styles.mainProgressCard}>
                 <View style={styles.progressRow}>
                     <View style={styles.progressItem}>
-                        <Text style={styles.sectionTitle}>Today's Goal</Text>
+                        <Text style={styles.sectionTitle}>Today&apos;s Goal</Text>
                         <Text style={styles.progressValue}>
                             {dashboardData?.today_progress || 0} / {dashboardData?.daily_goal || 3}
                         </Text>
@@ -185,7 +189,10 @@ const DashboardScreen = () => {
                         </Card>
                     ))
                 ) : (
-                    <Text style={styles.noActivityText}>No recent activity yet.</Text>
+                    <EmptyState
+                        title="No Recent Activity"
+                        message="Start solving problems to see your activity here."
+                    />
                 )}
             </View>
         </ScrollView>

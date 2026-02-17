@@ -113,6 +113,9 @@ async def get_progress(credentials: HTTPAuthorizationCredentials = Depends(secur
         db = get_database()
         progress_service = ProgressService(db)
         
+        # Log available methods to terminal
+        print(f"DEBUG: ProgressService methods: {dir(progress_service)}")
+        
         # Get detailed progress
         progress_data = await progress_service.get_detailed_progress(user_id)
         

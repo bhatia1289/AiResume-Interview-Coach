@@ -3,6 +3,7 @@
  * User profile and settings
  */
 
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Button from '../../src/components/Button';
@@ -12,6 +13,7 @@ import { useAuth } from '../../src/context/AuthContext';
 
 export default function ProfileScreen() {
     const { user, logout } = useAuth();
+    const router = useRouter();
 
     const handleLogout = () => {
         Alert.alert(
@@ -22,7 +24,15 @@ export default function ProfileScreen() {
                 {
                     text: 'Logout',
                     style: 'destructive',
-                    onPress: logout,
+                    onPress: async () => {
+                        try {
+                            await logout();
+                            // Root layout should handle this, but explicit navigation is safer
+                            router.replace('/login');
+                        } catch (error) {
+                            Alert.alert('Error', 'Failed to logout. Please try again.');
+                        }
+                    },
                 },
             ]
         );
@@ -35,12 +45,12 @@ export default function ProfileScreen() {
                 <View style={styles.avatarContainer}>
                     <View style={styles.avatar}>
                         <Text style={styles.avatarText}>
-                            {user?.name?.charAt(0).toUpperCase()}
+                            {user?.name?.charAt(0).toUpperCase() || 'U'}
                         </Text>
                     </View>
                 </View>
-                <Text style={styles.name}>{user?.name}</Text>
-                <Text style={styles.email}>{user?.email}</Text>
+                <Text style={styles.name}>{user?.name || 'User'}</Text>
+                <Text style={styles.email}>{user?.email || 'user@example.com'}</Text>
             </Card>
 
             {/* Stats */}
@@ -48,11 +58,11 @@ export default function ProfileScreen() {
                 <Text style={styles.sectionTitle}>Your Stats</Text>
                 <View style={styles.statsGrid}>
                     <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{user?.totalSolved || 0}</Text>
+                        <Text style={styles.statValue}>{user?.total_solved || 0}</Text>
                         <Text style={styles.statLabel}>Problems Solved</Text>
                     </View>
                     <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{user?.streak || 0}</Text>
+                        <Text style={styles.statValue}>{user?.current_streak || 0}</Text>
                         <Text style={styles.statLabel}>Day Streak</Text>
                     </View>
                 </View>
@@ -70,7 +80,7 @@ export default function ProfileScreen() {
                 <View style={styles.settingItem}>
                     <Text style={styles.settingLabel}>Member Since</Text>
                     <Text style={styles.settingValue}>
-                        {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                        {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
                     </Text>
                 </View>
             </Card>
@@ -117,12 +127,12 @@ const styles = StyleSheet.create({
     },
     avatarText: {
         fontSize: TYPOGRAPHY.fontSize['3xl'],
-        fontWeight: TYPOGRAPHY.fontWeight.bold,
+        fontWeight: 'bold',
         color: COLORS.surface,
     },
     name: {
         fontSize: TYPOGRAPHY.fontSize.xl,
-        fontWeight: TYPOGRAPHY.fontWeight.bold,
+        fontWeight: 'bold',
         color: COLORS.text,
         marginBottom: SPACING.xs,
     },
@@ -135,7 +145,7 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontSize: TYPOGRAPHY.fontSize.lg,
-        fontWeight: TYPOGRAPHY.fontWeight.semibold,
+        fontWeight: '600',
         color: COLORS.text,
         marginBottom: SPACING.md,
     },
@@ -147,12 +157,14 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         padding: SPACING.md,
-        backgroundColor: COLORS.divider,
+        backgroundColor: COLORS.background,
         borderRadius: 12,
+        borderWidth: 1,
+        borderColor: COLORS.divider,
     },
     statValue: {
         fontSize: TYPOGRAPHY.fontSize['2xl'],
-        fontWeight: TYPOGRAPHY.fontWeight.bold,
+        fontWeight: 'bold',
         color: COLORS.primary,
         marginBottom: SPACING.xs,
     },
@@ -189,7 +201,8 @@ const styles = StyleSheet.create({
     },
     appInfoText: {
         fontSize: TYPOGRAPHY.fontSize.sm,
-        color: COLORS.textLight,
+        color: COLORS.textSecondary,
         marginBottom: SPACING.xs,
+        opacity: 0.7,
     },
 });

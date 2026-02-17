@@ -6,6 +6,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { API_BASE_URL, API_ENDPOINTS, APP_CONFIG } from '../constants/config';
+import { getLeetCodeTagForTopic, isWorkingTag } from '../constants/leetcodeTopics';
+import { leetcodeAPI } from './leetcodeApi';
+import { progressService } from './progressService';
 
 // Create axios instance
 const apiClient = axios.create({
@@ -67,10 +70,15 @@ apiClient.interceptors.response.use(
         }
 
         // Handle case where error.response is missing (e.g. network error)
-        const errorMessage = error.response?.data?.message ||
+        let errorMessage = error.response?.data?.message ||
             error.response?.data?.error ||
             error.message ||
             'Something went wrong';
+
+        // Add helpful advice for absolute network failures
+        if (!error.response && error.message === 'Network Error') {
+            errorMessage = 'Network Error: Phone cannot reach backend. Check if both are on the same Wi-Fi.';
+        }
 
         // Return a cleaner error object
         const apiError = {
@@ -113,42 +121,227 @@ export const authAPI = {
 };
 
 // ============================================
-// Topics API
+// Topics API - Enhanced with LeetCode integration
 // ============================================
 
 export const topicsAPI = {
     /**
-     * Get all DSA topics
+     * Get all DSA topics (enhanced with progress data)
      */
     getTopics: async () => {
-        return await apiClient.get(API_ENDPOINTS.TOPICS.LIST);
+        try {
+            // Get topics from original API
+            const topics = await apiClient.get(API_ENDPOINTS.TOPICS.LIST);
+            
+            // Enhance with local progress data
+            const topicProgress = await progressService.getTopicProgress();
+            
+            const enhancedTopics = topics.map(topic => {
+                const progress = topicProgress[topic.name] || {
+                    easy: { solved: 0, total: 0 },
+                    medium: { solved: 0, total: 0 },
+                    hard: { solved: 0, total: 0 },
+                    totalSolved: 0,
+                    totalProblems: 0
+                };
+                
+                return {
+                    ...topic,
+                    progress: progress.totalProblems > 0 ? 
+                        Math.round((progress.totalSolved / progress.totalProblems) * 100) : 0,
+                    solved_problems: progress.totalSolved,
+                    total_problems: progress.totalProblems,
+                    difficulty_breakdown: {
+                        easy: progress.easy,
+                        medium: progress.medium,
+                        hard: progress.hard
+                    }
+                };
+            });
+            
+            return enhancedTopics;
+        } catch (error) {
+            console.error('Error getting topics with progress:', error);
+            // Fallback to original API
+            return await apiClient.get(API_ENDPOINTS.TOPICS.LIST);
+        }
     },
 
     /**
-     * Get topic details with problems
-     * @param {string} topicId
+     * Get topic details with problems from LeetCode API
+     * @param {string} topicId - Topic name/slug
      */
     getTopicDetail: async (topicId) => {
-        return await apiClient.get(API_ENDPOINTS.TOPICS.DETAIL(topicId));
+        try {
+            // Get problems from LeetCode API
+            const problems = await problemsAPI.getProblemsByTopic(topicId, 'all', 50);
+            
+            // Get topic progress
+            const topicProgress = await progressService.getTopicProgress();
+            const progress = topicProgress[topicId] || {
+                easy: { solved: 0, total: 0 },
+                medium: { solved: 0, total: 0 },
+                hard: { solved: 0, total: 0 },
+                totalSolved: 0,
+                totalProblems: problems.length
+            };
+            
+            return {
+                success: true,
+                data: {
+                    topic: topicId,
+                    problems: problems,
+                    progress: progress.totalProblems > 0 ? 
+                        Math.round((progress.totalSolved / progress.totalProblems) * 100) : 0,
+                    difficulty_breakdown: {
+                        easy: progress.easy,
+                        medium: progress.medium,
+                        hard: progress.hard
+                    },
+                    total_problems: problems.length,
+                    solved_problems: progress.totalSolved
+                }
+            };
+        } catch (error) {
+            console.error('Error getting topic detail:', error);
+            // Fallback to original API
+            return await apiClient.get(API_ENDPOINTS.TOPICS.DETAIL(topicId));
+        }
     },
 };
 
 // ============================================
-// Problems API
+// Problems API - Now using LeetCode API
 // ============================================
 
 export const problemsAPI = {
     /**
-     * Get question details
+     * Get problems by topic and difficulty using LeetCode API
+     * @param {string} topic - Topic name (e.g., 'Array', 'String')
+     * @param {string} difficulty - 'easy', 'medium', 'hard', or 'all'
+     * @param {number} limit - Number of problems to fetch
      */
-    getProblem: async (problemId) => {
-        return await apiClient.get(API_ENDPOINTS.PROBLEMS.DETAIL(problemId));
+    getProblemsByTopic: async (topic, difficulty = 'all', limit = 50) => {
+        try {
+            // Convert app topic name to LeetCode API tag slug
+            const leetCodeTag = getLeetCodeTagForTopic(topic);
+            console.log(`Fetching LeetCode problems for topic: ${topic} -> tag: ${leetCodeTag} (${difficulty}, limit: ${limit})`);
+            
+            // Check if this is a working tag
+            if (!isWorkingTag(leetCodeTag)) {
+                console.warn(`Tag '${leetCodeTag}' may not work with LeetCode API. Using fallback.`);
+                // For now, return empty array for non-working tags
+                // You can add fallback logic here if needed
+                return [];
+            }
+            
+            // Use LeetCode API to fetch problems
+            const problems = await leetcodeAPI.getQuestionsByTag(leetCodeTag, difficulty, limit);
+            
+            // Enhance with local progress data
+            const enhancedProblems = await Promise.all(
+                problems.map(async (problem) => {
+                    // Handle different property names from API
+                    const titleSlug = problem.title_slug || problem.titleSlug;
+                    const title = problem.title;
+                    const content = problem.content || problem.description;
+                    
+                    const isSolved = await progressService.isProblemSolved(titleSlug);
+                    const attempts = await progressService.getProblemAttempts(titleSlug);
+                    
+                    return {
+                        ...problem,
+                        id: titleSlug, // Use slug as ID
+                        titleSlug: titleSlug, // Ensure consistent property name
+                        name: title,
+                        description: content || title,
+                        difficulty: problem.difficulty?.toLowerCase() || 'unknown',
+                        problems_count: 1, // Individual problem
+                        isSolved: isSolved,
+                        attempts: attempts,
+                        progress: isSolved ? 100 : 0,
+                        icon: '📝', // Default icon
+                    };
+                })
+            );
+            
+            console.log(`Found ${enhancedProblems.length} problems for topic ${topic}`);
+            return enhancedProblems;
+        } catch (error) {
+            console.error('Error fetching problems by topic:', error);
+            // Return empty array on error
+            return [];
+        }
     },
 
     /**
-     * Submit code solution and get structured feedback
+     * Get specific problem details using LeetCode API
+     * @param {string} problemSlug - Problem slug from LeetCode
+     */
+    getProblemDetails: async (problemSlug) => {
+        try {
+            // Use LeetCode API to get problem details
+            const problem = await leetcodeAPI.getProblemDetails(problemSlug);
+            
+            // Enhance with local progress data
+            const isSolved = await progressService.isProblemSolved(problemSlug);
+            const attempts = await progressService.getProblemAttempts(problemSlug);
+            
+            return {
+                ...problem,
+                id: problemSlug,
+                title: problem.title,
+                content: problem.content,
+                difficulty: problem.difficulty?.toLowerCase() || 'unknown',
+                isSolved: isSolved,
+                attempts: attempts,
+                hints: problem.hints || [],
+                examples: problem.examples || [],
+                constraints: problem.constraints || [],
+            };
+        } catch (error) {
+            console.error('Error fetching problem details:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Mark problem as solved (local progress tracking)
+     * @param {string} problemSlug - Problem slug
+     * @param {string} topic - Topic name
+     * @param {string} difficulty - Problem difficulty
+     */
+    markProblemSolved: async (problemSlug, topic, difficulty) => {
+        return await progressService.markProblemSolved(problemSlug, topic, difficulty);
+    },
+
+    /**
+     * Mark problem as attempted (local progress tracking)
+     * @param {string} problemSlug - Problem slug
+     * @param {string} topic - Topic name
+     * @param {string} difficulty - Problem difficulty
+     */
+    markProblemAttempted: async (problemSlug, topic, difficulty) => {
+        return await progressService.markProblemAttempted(problemSlug, topic, difficulty);
+    },
+
+    /**
+     * Get user progress statistics
+     */
+    getUserProgress: async () => {
+        return await progressService.getUserStats();
+    },
+
+    /**
+     * Submit code solution (fallback to original API if needed)
      */
     submitSolution: async (problemId, data) => {
+        // First try to mark as attempted locally
+        if (data.topic && data.difficulty) {
+            await progressService.markProblemAttempted(problemId, data.topic, data.difficulty);
+        }
+        
+        // Then use original API for code evaluation
         return await apiClient.post(API_ENDPOINTS.PROBLEMS.SUBMIT, {
             ...data,
             question_id: problemId
@@ -156,7 +349,7 @@ export const problemsAPI = {
     },
 
     /**
-     * Request structured AI hint (hint, concept, improvement)
+     * Request structured AI hint (unchanged - uses original API)
      */
     getHint: async (problemId, userCode = "") => {
         return await apiClient.post(API_ENDPOINTS.PROBLEMS.HINT, {
@@ -166,7 +359,7 @@ export const problemsAPI = {
     },
 
     /**
-     * Request detailed AI explanation
+     * Request detailed AI explanation (unchanged - uses original API)
      */
     getExplanation: async (problemId, code = "", language = "python") => {
         return await apiClient.post(API_ENDPOINTS.PROBLEMS.EXPLAIN, {
@@ -178,37 +371,138 @@ export const problemsAPI = {
 };
 
 // ============================================
-// Progress API
+// Progress API - Now using local progress service
 // ============================================
 
 export const progressAPI = {
     /**
-     * Get dashboard data
+     * Get dashboard data (enhanced with local progress)
      */
     getDashboard: async () => {
-        return await apiClient.get(API_ENDPOINTS.PROGRESS.DASHBOARD);
+        try {
+            // Get local progress stats
+            const userStats = await progressService.getUserStats();
+            
+            // Get daily progress
+            const dailyProgress = await progressService.getDailyProgress();
+            const today = new Date().toDateString();
+            const todayProgress = dailyProgress[today] || { problemsSolved: 0 };
+            
+            // Get streak data
+            const streakData = await progressService.getStreakData();
+            
+            // Get topic progress
+            const topicProgress = await progressService.getTopicProgress();
+            
+            return {
+                success: true,
+                data: {
+                    total_solved: userStats.totalSolved,
+                    total_attempted: userStats.totalAttempted,
+                    streak_days: streakData.currentStreak,
+                    daily_problems_solved: todayProgress.problemsSolved,
+                    topics_covered: userStats.topicsCovered,
+                    difficulty_breakdown: userStats.difficultyBreakdown,
+                    topic_progress: topicProgress,
+                    recent_activity: await progressService.getSolvedProblems(),
+                }
+            };
+        } catch (error) {
+            console.error('Error getting dashboard data:', error);
+            // Fallback to original API
+            return await apiClient.get(API_ENDPOINTS.PROGRESS.DASHBOARD);
+        }
     },
 
     /**
-     * Get learning roadmap
+     * Get learning roadmap (enhanced with local progress)
      */
     getRoadmap: async () => {
-        return await apiClient.get(API_ENDPOINTS.PROGRESS.ROADMAP);
+        try {
+            const topicProgress = await progressService.getTopicProgress();
+            
+            // Create roadmap based on topic progress
+            const roadmap = Object.entries(topicProgress).map(([topic, progress]) => ({
+                topic: topic,
+                progress: progress.totalProblems > 0 ? 
+                    Math.round((progress.totalSolved / progress.totalProblems) * 100) : 0,
+                total_problems: progress.totalProblems,
+                solved_problems: progress.totalSolved,
+                difficulty_breakdown: {
+                    easy: progress.easy,
+                    medium: progress.medium,
+                    hard: progress.hard
+                },
+                status: progress.totalSolved === progress.totalProblems ? 'completed' : 
+                       progress.totalSolved > 0 ? 'in_progress' : 'not_started'
+            }));
+            
+            return {
+                success: true,
+                data: roadmap
+            };
+        } catch (error) {
+            console.error('Error getting roadmap:', error);
+            // Fallback to original API
+            return await apiClient.get(API_ENDPOINTS.PROGRESS.ROADMAP);
+        }
     },
 
     /**
-     * Set daily goals
+     * Set daily goals (stored locally)
      * @param {Object} data - { daily_problems, topics }
      */
     setGoals: async (data) => {
-        return await apiClient.post(API_ENDPOINTS.PROGRESS.GOALS, data);
+        try {
+            // Store goals locally
+            await AsyncStorage.setItem('@daily_goals', JSON.stringify(data));
+            return {
+                success: true,
+                message: 'Daily goals set successfully'
+            };
+        } catch (error) {
+            console.error('Error setting goals:', error);
+            // Fallback to original API
+            return await apiClient.post(API_ENDPOINTS.PROGRESS.GOALS, data);
+        }
     },
 
     /**
-     * Get current goals
+     * Get current goals (from local storage)
      */
     getGoals: async () => {
-        return await apiClient.get(API_ENDPOINTS.PROGRESS.GOALS);
+        try {
+            const goals = await AsyncStorage.getItem('@daily_goals');
+            return {
+                success: true,
+                data: goals ? JSON.parse(goals) : { daily_problems: 3, topics: [] }
+            };
+        } catch (error) {
+            console.error('Error getting goals:', error);
+            // Fallback to original API
+            return await apiClient.get(API_ENDPOINTS.PROGRESS.GOALS);
+        }
+    },
+
+    /**
+     * Get progress by topic
+     */
+    getTopicProgress: async () => {
+        return await progressService.getTopicProgress();
+    },
+
+    /**
+     * Get streak data
+     */
+    getStreakData: async () => {
+        return await progressService.getStreakData();
+    },
+
+    /**
+     * Reset all progress (use with caution)
+     */
+    resetProgress: async () => {
+        return await progressService.resetAllProgress();
     },
 };
 

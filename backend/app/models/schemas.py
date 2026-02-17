@@ -15,6 +15,12 @@ class DifficultyLevel(str, Enum):
     HARD = "hard"
 
 
+class SkillLevel(str, Enum):
+    BEGINNER = "beginner"
+    INTERMEDIATE = "intermediate"
+    ADVANCED = "advanced"
+
+
 class SubmissionStatus(str, Enum):
     SOLVED = "solved"
     ATTEMPTED = "attempted"
@@ -248,3 +254,34 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     user_id: Optional[str] = None
+
+
+# Roadmap Models
+class RoadmapRequest(BaseModel):
+    skill_level: SkillLevel
+    target_days: int = Field(..., gt=0, le=180)
+    daily_hours: float = Field(..., gt=0, le=16)
+
+
+class DailyPlan(BaseModel):
+    day: int
+    topic: str
+    questions_count: int
+    difficulty: DifficultyLevel
+
+
+class WeeklyPlan(BaseModel):
+    week: int
+    topics: List[str]
+    daily_plans: List[DailyPlan]
+
+
+class RoadmapResponseData(BaseModel):
+    weekly_plan: List[WeeklyPlan]
+    total_days: int
+    estimated_completion_timeline: str
+    total_questions: int
+
+
+class RoadmapResponse(ApiResponse):
+    data: RoadmapResponseData
