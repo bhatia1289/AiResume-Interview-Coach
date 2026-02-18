@@ -1,15 +1,56 @@
 /**
  * Application Configuration
- * Central configuration file for API endpoints and app settings
+ * Reads API host from environment variables (.env) so you never
+ * have to hardcode your local IP address again.
+ *
+ * To change the backend IP:
+ *   1. Edit EXPO_PUBLIC_API_IP in the root .env file
+ *   2. Restart Expo: npx expo start --host lan
  */
 
-// Backend API base URL
-// Using local IP 192.168.1.38 to ensure connectivity across all devices on your Wi-Fi
-export const API_BASE_URL = __DEV__
-  ? 'http://192.168.1.38:8000/api'  // Development (Local Network IP)
-  : 'https://your-production-api.com/api';  // Production
+import Constants from 'expo-constants';
 
-// API endpoints
+// ---------------------------------------------------------------------------
+// Resolve the backend base URL
+// ---------------------------------------------------------------------------
+// Priority order:
+//   1. EXPO_PUBLIC_API_BASE_URL  (full override, e.g. production URL)
+//   2. EXPO_PUBLIC_API_IP + EXPO_PUBLIC_API_PORT  (local dev)
+//   3. Auto-detect from Expo's Metro bundler host (fallback for dev)
+// ---------------------------------------------------------------------------
+
+const getApiBaseUrl = () => {
+  // 1. Full URL override (e.g. production)
+  if (process.env.EXPO_PUBLIC_API_BASE_URL) {
+    return process.env.EXPO_PUBLIC_API_BASE_URL;
+  }
+
+  // 2. IP + Port from .env
+  const ip = process.env.EXPO_PUBLIC_API_IP;
+  const port = process.env.EXPO_PUBLIC_API_PORT || '8000';
+  if (ip) {
+    return `http://${ip}:${port}/api`;
+  }
+
+  // 3. Auto-detect: use the same host as the Metro bundler (dev only)
+  //    This works when both phone and PC are on the same Wi-Fi and
+  //    Expo is started with: npx expo start --host lan
+  if (__DEV__) {
+    const metroHost = Constants.expoConfig?.hostUri?.split(':')[0];
+    if (metroHost) {
+      return `http://${metroHost}:8000/api`;
+    }
+  }
+
+  // 4. Last resort fallback
+  return 'http://localhost:8000/api';
+};
+
+export const API_BASE_URL = getApiBaseUrl();
+
+// ---------------------------------------------------------------------------
+// API Endpoints
+// ---------------------------------------------------------------------------
 export const API_ENDPOINTS = {
   // Authentication
   AUTH: {
@@ -41,7 +82,9 @@ export const API_ENDPOINTS = {
   },
 };
 
-// App settings
+// ---------------------------------------------------------------------------
+// App-wide settings
+// ---------------------------------------------------------------------------
 export const APP_CONFIG = {
   APP_NAME: 'DSA Learning Assistant',
   VERSION: '1.0.0',
