@@ -28,23 +28,33 @@ class AIService:
             except Exception as e:
                 logger.error(f"Failed to initialize AI client: {e}")
 
-    async def generate_hint(self, question: str, user_code: str) -> AIStructuredResponse:
+    async def generate_hint(
+        self,
+        question_id: str,
+        context: str = "",
+        user_id: Optional[str] = None
+    ) -> AIStructuredResponse:
         """
         Generate a structured AI hint including concept explanation and improvement areas.
+        question_id: the LeetCode problem slug (e.g. 'two-sum')
+        context: the user's current code or description of where they are stuck
         """
-        prompt = f"""
-        You are a DSA expert. A user is stuck on this question.
-        Question: {question}
-        User's Current Code: {user_code}
-        
-        Provide a response in EXACTLY this JSON format:
-        {{
-            "hint": "A small nudge helping them move forward without giving the answer.",
-            "concept_explained": "A brief explanation of the core concept they are struggling with.",
-            "improvement_area": "Where their current code can be improved (e.g., logic, complexity, edge cases)."
-        }}
-        """
-        
+        # Convert slug to a readable problem name for the prompt
+        readable_name = question_id.replace("-", " ").title()
+        user_code = context or "I'm stuck and haven't written any code yet."
+
+        prompt = f"""\
+You are a DSA expert helping a student who is stuck on a LeetCode problem.
+Problem: {readable_name} (slug: {question_id})
+User's current code / context: {user_code}
+
+Provide a response in EXACTLY this JSON format:
+{{
+    "hint": "A small nudge helping them move forward without giving the answer.",
+    "concept_explained": "A brief explanation of the core concept or data structure they should use.",
+    "improvement_area": "Where their current approach can be improved (logic, complexity, edge cases)."
+}}"""
+
         if self.client:
             try:
                 response = await self.client.chat.completions.create(
@@ -53,11 +63,11 @@ class AIService:
                         {"role": "system", "content": "You are a specialized DSA tutor. Always respond in JSON format."},
                         {"role": "user", "content": prompt}
                     ],
-                    response_format={{ "type": "json_object" }} if "gpt-4" in settings.OPENAI_MODEL or "json" in settings.OPENAI_MODEL.lower() else None
+                    response_format={"type": "json_object"} if "gpt-4" in settings.OPENAI_MODEL or "json" in settings.OPENAI_MODEL.lower() else None
                 )
                 raw_content = response.choices[0].message.content.strip()
                 parsed_json = json.loads(self._clean_json(raw_content))
-                
+
                 return AIStructuredResponse(
                     hint=parsed_json.get("hint", ""),
                     concept_explained=parsed_json.get("concept_explained", ""),
@@ -65,27 +75,40 @@ class AIService:
                 )
             except Exception as e:
                 logger.error(f"AI Hint Error: {e}")
-        
-        # Fallback to smart mock if AI fails or isn't configured
-        return self._get_mock_structured_response("hint", question)
 
-    async def generate_feedback(self, question: str, user_code: str) -> AIStructuredResponse:
+        # Fallback mock if AI is not configured or call failed
+        return self._get_mock_structured_response("hint", readable_name)
+
+    async def generate_feedback(
+        self,
+        question_id: str,
+        code: str = "",
+        language: str = "python",
+        user_id: Optional[str] = None
+    ) -> AIStructuredResponse:
         """
         Generate detailed feedback on code submission in a structured format.
+        question_id: the LeetCode problem slug
+        code: the user's submitted code
+        language: programming language of the submission
         """
-        prompt = f"""
-        Analyze this DSA solution.
-        Question: {question}
-        User's Submission: {user_code}
-        
-        Provide feedback in EXACTLY this JSON format:
-        {{
-            "hint": "Final summary feedback for the user.",
-            "concept_explained": "The logic or pattern they correctly or incorrectly used.",
-            "improvement_area": "Specific technical improvements needed."
-        }}
-        """
-        
+        readable_name = question_id.replace("-", " ").title()
+        user_code = code or "No code submitted yet."
+
+        prompt = f"""\
+Analyze this DSA solution.
+Problem: {readable_name} (slug: {question_id})
+Language: {language}
+User's Submission:
+{user_code}
+
+Provide feedback in EXACTLY this JSON format:
+{{
+    "hint": "Final summary feedback for the user.",
+    "concept_explained": "The logic or pattern they correctly or incorrectly used.",
+    "improvement_area": "Specific technical improvements needed."
+}}"""
+
         if self.client:
             try:
                 response = await self.client.chat.completions.create(
@@ -97,7 +120,7 @@ class AIService:
                 )
                 raw_content = response.choices[0].message.content.strip()
                 parsed_json = json.loads(self._clean_json(raw_content))
-                
+
                 return AIStructuredResponse(
                     hint=parsed_json.get("hint", ""),
                     concept_explained=parsed_json.get("concept_explained", ""),
@@ -106,7 +129,7 @@ class AIService:
             except Exception as e:
                 logger.error(f"AI Feedback Error: {e}")
 
-        return self._get_mock_structured_response("feedback", question)
+        return self._get_mock_structured_response("feedback", readable_name)
 
     def _clean_json(self, content: str) -> str:
         """Removes markdown code blocks from the string if present"""
