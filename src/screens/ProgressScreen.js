@@ -3,7 +3,7 @@
  * User progress tracking and learning roadmap
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
     Alert,
     RefreshControl,
@@ -16,16 +16,27 @@ import Card from '../components/Card';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ProgressBar from '../components/ProgressBar';
 import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
+import { useFocusEffect } from '@react-navigation/native';
 import { progressAPI } from '../services/api';
+import { useRouter } from 'expo-router';
+import { TouchableOpacity } from 'react-native';
 
 const ProgressScreen = () => {
     const [roadmap, setRoadmap] = useState(null);
     const [goals, setGoals] = useState(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const router = useRouter();
+
+    // Re-fetch data every time the screen comes into focus
+    useFocusEffect(
+        useCallback(() => {
+            fetchProgressData(false);
+        }, [])
+    );
 
     useEffect(() => {
-        fetchProgressData();
+        fetchProgressData(true);
     }, []);
 
     /**
@@ -48,11 +59,8 @@ const ProgressScreen = () => {
             if (goalsData) {
                 setGoals({
                     ...goalsData,
-                    dailyProblems: goalsData.target_problems || 3,
-                    completedToday: goalsData.completed_problems || 0,
-                    // Mock weekly goals if not provided by backend
-                    weeklyGoal: 15,
-                    completedThisWeek: (goalsData.completed_problems || 0) + 5,
+                    dailyProblems: goalsData.target_problems || goalsData.daily_problems || 3,
+                    completedToday: goalsData.completed_problems || goalsData.completedToday || 0,
                 });
             }
         } catch (error) {
@@ -112,21 +120,6 @@ const ProgressScreen = () => {
                     </View>
                 )}
 
-                {goals?.weeklyGoal && (
-                    <View style={styles.goalItem}>
-                        <View style={styles.goalHeader}>
-                            <Text style={styles.goalLabel}>Weekly Goal</Text>
-                            <Text style={styles.goalValue}>
-                                {goals.completedThisWeek} / {goals.weeklyGoal}
-                            </Text>
-                        </View>
-                        <ProgressBar
-                            progress={(goals.completedThisWeek / goals.weeklyGoal) * 100}
-                            showPercentage
-                            color={COLORS.secondary}
-                        />
-                    </View>
-                )}
             </Card>
 
             {/* Learning Roadmap */}
@@ -134,7 +127,19 @@ const ProgressScreen = () => {
                 <Text style={styles.sectionTitle}>Learning Roadmap 🗺️</Text>
 
                 {roadmap?.phases?.map((phase, index) => (
-                    <Card key={index} style={styles.phaseCard} shadow="sm">
+                    <Card 
+                        key={index} 
+                        style={styles.phaseCard} 
+                        shadow="sm"
+                        onPress={() => {
+                            if (phase.topics && phase.topics.length > 0) {
+                                router.push({
+                                    pathname: '/problems',
+                                    params: { topicId: phase.topics[0].name, topicName: phase.topics[0].name }
+                                });
+                            }
+                        }}
+                    >
                         <View style={styles.phaseHeader}>
                             <View style={styles.phaseNumber}>
                                 <Text style={styles.phaseNumberText}>{index + 1}</Text>
@@ -151,7 +156,16 @@ const ProgressScreen = () => {
                         {phase.topics && (
                             <View style={styles.topicsList}>
                                 {phase.topics.map((topic, topicIndex) => (
-                                    <View key={topicIndex} style={styles.topicItem}>
+                                    <TouchableOpacity 
+                                        key={topicIndex} 
+                                        style={styles.topicItem}
+                                        onPress={() => {
+                                            router.push({
+                                                pathname: '/problems',
+                                                params: { topicId: topic.name, topicName: topic.name }
+                                            });
+                                        }}
+                                    >
                                         <Text
                                             style={[
                                                 styles.topicName,
@@ -167,7 +181,7 @@ const ProgressScreen = () => {
                                                 style={styles.topicProgress}
                                             />
                                         )}
-                                    </View>
+                                    </TouchableOpacity>
                                 ))}
                             </View>
                         )}

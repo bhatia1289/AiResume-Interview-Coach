@@ -66,7 +66,32 @@ class ProgressService:
     
     async def _update_progress_on_solve(self, user_id: str, question_id: str):
         """Update user progress when a question is solved"""
-        # Get question details (try by ObjectId, then by slug/question_id)
+        # 1. Update user stats (streak and total solves) - ALWAYS do this
+        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Count ALL solved today to determine if it's the first success today
+        all_solved_today_count = await self.submissions_collection.count_documents({
+            "user_id": user_id,
+            "status": "solved",
+            "submitted_at": {"$gte": today_start}
+        })
+        is_first_solve_today = (all_solved_today_count == 1)
+        
+        # Count all-time solves for THIS question to see if it's a new unique one
+        solves_for_this_question = await self.submissions_collection.count_documents({
+            "user_id": user_id,
+            "question_id": question_id,
+            "status": "solved"
+        })
+        is_new_unique_solve = (solves_for_this_question == 1)
+        
+        # Update user stats
+        await self.user_service.update_user_stats(user_id, is_first_solve_today, is_new_unique_solve)
+        
+        # Update daily goal
+        await self.daily_goal_service.mark_problem_completed(user_id)
+
+        # 2. Update Topic Progress (Requires question to be in local DB)
         question = None
         try:
             if len(question_id) == 24 and all(c in '0123456789abcdefABCDEF' for c in question_id):
@@ -75,8 +100,6 @@ class ProgressService:
             pass
             
         if not question:
-            # Try finding by slug/question_id (where question_id is stored in 'question_id' or similar field)
-            # Some implementations store slug in _id, others in a separate field
             question = await self.db.questions.find_one({
                 "$or": [
                     {"_id": question_id},
@@ -90,14 +113,13 @@ class ProgressService:
         
         topic_id = question["topic_id"]
         
-        # Update topic progress
+        # Update topic progress record
         progress = await self.progress_collection.find_one({
             "user_id": user_id,
             "topic_id": topic_id
         })
         
         if progress:
-            # Update existing progress
             await self.progress_collection.update_one(
                 {"_id": progress["_id"]},
                 {
@@ -109,7 +131,6 @@ class ProgressService:
                 }
             )
         else:
-            # Create new progress record
             total_questions = await self.db.questions.count_documents({"topic_id": topic_id})
             progress_data = {
                 "user_id": user_id,
@@ -122,41 +143,21 @@ class ProgressService:
             }
             await self.progress_collection.insert_one(progress_data)
         
-        # Update user stats
-        solved_today = await self._check_solved_today(user_id)
-        await self.user_service.update_user_stats(user_id, solved_today)
-        
-        # Update daily goal
-        await self.daily_goal_service.mark_problem_completed(user_id)
-    
-    async def _check_solved_today(self, user_id: str) -> bool:
-        """Check if user solved any problem today"""
-        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-        
-        today_submission = await self.submissions_collection.find_one({
-            "user_id": user_id,
-            "status": "solved",
-            "submitted_at": {"$gte": today_start}
-        })
-        
-        return today_submission is not None
-    
     async def get_dashboard_data(self, user_id: str) -> Dict[str, Any]:
         """Get enhanced dashboard data for a user"""
-        user = await self.user_service.get_user_by_id(user_id)
+        user = await self.user_service.get_user_with_sync(user_id)
         if not user:
             raise ValueError("User not found")
         
-        # 1. Today's solved count
-        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-        today_solved = await self.submissions_collection.count_documents({
-            "user_id": user_id,
-            "status": "solved",
-            "submitted_at": {"$gte": today_start}
-        })
+        # 0. Sync check already happened in get_user_with_sync
+        now = datetime.utcnow()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         
-        # 2. Daily goal info
+        # 1. Daily goal info (Now includes live verification)
         daily_goal = await self.daily_goal_service.get_today_goal(user_id)
+        
+        # 2. Today's solved count from the goal record
+        today_solved = daily_goal.completed_problems
         
         # 3. Topic completion & logic
         topic_progress = await self.get_topic_progress_with_names(user_id)
@@ -167,113 +168,96 @@ class ProgressService:
         # 5. Recent activity
         recent_activity = await self.get_recent_activity(user_id, limit=5)
         
+        # 6. Real-time Total Solved Count (Count unique solved question_ids)
+        distinct_solved = await self.submissions_collection.distinct(
+            "question_id", 
+            {"user_id": user_id, "status": "solved"}
+        )
+        total_solved = len(distinct_solved)
+        
+        # Optional: Sync user doc if different
+        if total_solved != user.total_solved:
+            await self.db.users.update_one(
+                {"_id": ObjectId(user_id)},
+                {"$set": {"total_solved": total_solved}}
+            )
+
         return {
             "streak": user.current_streak,
-            "total_solved": user.total_solved,
+            "total_solved": total_solved,
             "today_progress": today_solved,
-            "daily_goal": daily_goal.target_problems,
+            "daily_goal": daily_goal.target_problems if daily_goal else 3,
             "completion_percentage": self._calculate_overall_completion(topic_progress),
             "topic_progress": topic_progress,
             "weak_topics": weak_topics,
-            "recent_activity": [s.dict() for s in recent_activity]
+            "recent_activity": recent_activity
         }
 
     async def get_topic_progress_with_names(self, user_id: str) -> List[Dict[str, Any]]:
-        """Get topic progress joined with topic details"""
-        pipeline = [
-            {"$match": {"user_id": user_id}},
-            {
-                "$addFields": {
-                    "topic_id_oid": {"$toObjectId": "$topic_id"}
-                }
-            },
-            {
-                "$lookup": {
-                    "from": "topics",
-                    "localField": "topic_id_oid",
-                    "foreignField": "_id",
-                    "as": "topic_info"
-                }
-            },
-            {"$unwind": "$topic_info"},
-            {
-                "$project": {
-                    "topic_id": 1,
-                    "name": "$topic_info.name",
-                    "questions_solved": 1,
-                    "total_questions": 1,
-                    "percentage": {
-                        "$multiply": [{"$divide": ["$questions_solved", "$total_questions"]}, 100]
-                    }
-                }
-            }
-        ]
-        cursor = self.progress_collection.aggregate(pipeline)
-        return await cursor.to_list(length=100)
+        """Get topic progress joined with topic details - robust to ID types"""
+        # First get all progress for user
+        cursor = self.progress_collection.find({"user_id": user_id})
+        progress_items = await cursor.to_list(length=100)
+        
+        results = []
+        for p in progress_items:
+            # Find topic by ID or Slug
+            topic_id = p["topic_id"]
+            topic = None
+            try:
+                if len(str(topic_id)) == 24:
+                    topic = await self.db.topics.find_one({"_id": ObjectId(topic_id)})
+            except: pass
+            
+            if not topic:
+                topic = await self.db.topics.find_one({"slug": topic_id})
+                
+            results.append({
+                "topic_id": str(topic_id),
+                "name": topic["name"] if topic else "Unknown Topic",
+                "questions_solved": p.get("questions_solved", 0),
+                "total_questions": p.get("total_questions", 1),
+                "percentage": (p.get("questions_solved", 0) / p.get("total_questions", 1)) * 100
+            })
+        return results
 
     async def get_weak_topics(self, user_id: str) -> List[Dict[str, Any]]:
-        """Identify topics where success rate < 60% using aggregation"""
-        pipeline = [
-            {"$match": {"user_id": user_id}},
-            # Convert question_id string to ObjectId for lookup
-            {
-                "$addFields": {
-                    "question_id_oid": {"$toObjectId": "$question_id"}
-                }
-            },
-            # Join with questions to get topic_id
-            {
-                "$lookup": {
-                    "from": "questions",
-                    "localField": "question_id_oid",
-                    "foreignField": "_id",
-                    "as": "question_info"
-                }
-            },
-            {"$unwind": "$question_info"},
-            # Group by topic_id from the question
-            {
-                "$group": {
-                    "_id": "$question_info.topic_id",
-                    "total_attempts": {"$sum": 1},
-                    "solved_count": {
-                        "$sum": {"$cond": [{"$eq": ["$status", "solved"]}, 1, 0]}
-                    }
-                }
-            },
-            {
-                "$project": {
-                    "topic_id": "$_id",
-                    "accuracy": {"$divide": ["$solved_count", "$total_attempts"]}
-                }
-            },
-            {"$match": {"accuracy": {"$lt": 0.6}}},
-            # Lookup topic details
-            {
-                "$addFields": {
-                    "topic_id_oid": {"$toObjectId": "$topic_id"}
-                }
-            },
-            {
-                "$lookup": {
-                    "from": "topics",
-                    "localField": "topic_id_oid",
-                    "foreignField": "_id",
-                    "as": "topic_info"
-                }
-            },
-            {"$unwind": "$topic_info"},
-            {
-                "$project": {
-                    "_id": 0,
-                    "name": "$topic_info.name",
-                    "accuracy": {"$multiply": ["$accuracy", 100]},
-                    "total_attempts": 1
-                }
-            }
-        ]
-        cursor = self.submissions_collection.aggregate(pipeline)
-        return await cursor.to_list(length=10)
+        """Identify topics where success rate < 60% - robust version"""
+        # Get all submissions for user
+        cursor = self.submissions_collection.find({"user_id": user_id})
+        submissions = await cursor.to_list(length=500)
+        
+        if not submissions:
+            return []
+            
+        topic_stats = {} # topic_id -> {total, solved}
+        
+        for s in submissions:
+            q_id = s["question_id"]
+            # Find question to get its topic
+            question = await self.db.questions.find_one({"$or": [{"_id": q_id}, {"slug": q_id}, {"question_id": q_id}]})
+            if not question: continue
+            
+            t_id = question["topic_id"]
+            if t_id not in topic_stats:
+                topic_stats[t_id] = {"total": 0, "solved": 0}
+            
+            topic_stats[t_id]["total"] += 1
+            if s.get("status") == "solved":
+                topic_stats[t_id]["solved"] += 1
+                
+        results = []
+        for t_id, stats in topic_stats.items():
+            accuracy = (stats["solved"] / stats["total"])
+            if accuracy < 0.6:
+                topic = await self.db.topics.find_one({"$or": [{"_id": t_id}, {"slug": t_id}]})
+                results.append({
+                    "name": topic["name"] if topic else "Unknown",
+                    "accuracy": accuracy * 100,
+                    "total_attempts": stats["total"]
+                })
+        
+        return results
 
     async def get_detailed_progress(self, user_id: str) -> Dict[str, Any]:
         """Get detailed learning progress and roadmap for the Progress screen"""
@@ -383,6 +367,10 @@ class ProgressService:
         return submissions
 
     def _mock_evaluation(self, code: str) -> bool:
-        """Mock code evaluation for testing"""
-        import random
-        return random.random() > 0.3
+        """Mock code evaluation for testing - more reliable for user feedback"""
+        clean_code = code.strip()
+        # Relaxed length requirement to 5 chars (e.g. 'pass' or 'return')
+        if len(clean_code) < 5 or "# Write your solution here" in clean_code:
+            return False
+        # Otherwise, for learning purposes, we treat it as solved
+        return True

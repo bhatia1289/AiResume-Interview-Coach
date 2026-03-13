@@ -4,16 +4,30 @@
  */
 
 import { useRouter } from 'expo-router';
-import React from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import Button from '../../src/components/Button';
 import Card from '../../src/components/Card';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 
 export default function ProfileScreen() {
-    const { user, logout } = useAuth();
+    const { user, logout, refreshProfile } = useAuth();
+    const [refreshing, setRefreshing] = useState(false);
     const router = useRouter();
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await refreshProfile();
+        setRefreshing(false);
+    }, [refreshProfile]);
+
+    useFocusEffect(
+        useCallback(() => {
+            refreshProfile();
+        }, [refreshProfile])
+    );
 
     const handleLogout = () => {
         Alert.alert(
@@ -39,7 +53,13 @@ export default function ProfileScreen() {
     };
 
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <ScrollView 
+            style={styles.container} 
+            contentContainerStyle={styles.content}
+            refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+        >
             {/* Profile Header */}
             <Card style={styles.profileCard}>
                 <View style={styles.avatarContainer}>

@@ -380,18 +380,16 @@ export const progressAPI = {
      */
     getDashboard: async () => {
         try {
-            // Get local progress stats
+            // ALWAYS try backend first
+            return await apiClient.get(API_ENDPOINTS.PROGRESS.DASHBOARD);
+        } catch (error) {
+            console.warn('Dashboard Backend failed, falling back to local:', error);
+            // Fallback to local progress if backend fails
             const userStats = await progressService.getUserStats();
-            
-            // Get daily progress
             const dailyProgress = await progressService.getDailyProgress();
             const today = new Date().toDateString();
             const todayProgress = dailyProgress[today] || { problemsSolved: 0 };
-            
-            // Get streak data
             const streakData = await progressService.getStreakData();
-            
-            // Get topic progress
             const topicProgress = await progressService.getTopicProgress();
             
             return {
@@ -399,18 +397,21 @@ export const progressAPI = {
                 data: {
                     total_solved: userStats.totalSolved,
                     total_attempted: userStats.totalAttempted,
-                    streak_days: streakData.currentStreak,
-                    daily_problems_solved: todayProgress.problemsSolved,
+                    streak: streakData.currentStreak,
+                    today_progress: todayProgress.problemsSolved,
+                    daily_goal: 3,
                     topics_covered: userStats.topicsCovered,
                     difficulty_breakdown: userStats.difficultyBreakdown,
-                    topic_progress: topicProgress,
+                    topic_progress: Object.entries(topicProgress).map(([name, p]) => ({
+                        name, 
+                        topic_id: name,
+                        questions_solved: p.totalSolved,
+                        total_questions: p.totalProblems,
+                        percentage: p.totalProblems > 0 ? (p.totalSolved/p.totalProblems)*100 : 0
+                    })),
                     recent_activity: await progressService.getSolvedProblems(),
                 }
             };
-        } catch (error) {
-            console.error('Error getting dashboard data:', error);
-            // Fallback to original API
-            return await apiClient.get(API_ENDPOINTS.PROGRESS.DASHBOARD);
         }
     },
 
@@ -419,32 +420,31 @@ export const progressAPI = {
      */
     getRoadmap: async () => {
         try {
+            // ALWAYS try backend first
+            return await apiClient.get(API_ENDPOINTS.PROGRESS.ROADMAP);
+        } catch (error) {
+            console.warn('Roadmap Backend failed, falling back to local:', error);
             const topicProgress = await progressService.getTopicProgress();
             
-            // Create roadmap based on topic progress
-            const roadmap = Object.entries(topicProgress).map(([topic, progress]) => ({
-                topic: topic,
-                progress: progress.totalProblems > 0 ? 
-                    Math.round((progress.totalSolved / progress.totalProblems) * 100) : 0,
-                total_problems: progress.totalProblems,
-                solved_problems: progress.totalSolved,
-                difficulty_breakdown: {
-                    easy: progress.easy,
-                    medium: progress.medium,
-                    hard: progress.hard
-                },
-                status: progress.totalSolved === progress.totalProblems ? 'completed' : 
-                       progress.totalSolved > 0 ? 'in_progress' : 'not_started'
-            }));
-            
-            return {
-                success: true,
-                data: roadmap
+            // Format to match Roadmap structure expected by ProgressScreen
+            const roadmapResult = {
+                phases: [
+                    {
+                        name: "Foundation",
+                        description: "Master basic data structures",
+                        topics: Object.entries(topicProgress).map(([name, p]) => ({
+                            name,
+                            progress: p.totalProblems > 0 ? (p.totalSolved/p.totalProblems)*100 : 0,
+                            completed: p.totalSolved === p.totalProblems && p.totalProblems > 0
+                        }))
+                    }
+                ],
+                totalProblems: 0,
+                solvedProblems: 0,
+                accuracy: 0,
+                streak: 0
             };
-        } catch (error) {
-            console.error('Error getting roadmap:', error);
-            // Fallback to original API
-            return await apiClient.get(API_ENDPOINTS.PROGRESS.ROADMAP);
+            return { success: true, data: roadmapResult };
         }
     },
 
@@ -468,19 +468,20 @@ export const progressAPI = {
     },
 
     /**
-     * Get current goals (from local storage)
+     * Get current goals (Prefer Backend)
      */
     getGoals: async () => {
         try {
+            // Priority 1: Backend (has live 'completed_problems' count)
+            return await apiClient.get(API_ENDPOINTS.PROGRESS.GOALS);
+        } catch (error) {
+            console.warn('Goals Backend failed, falling back to local storage:', error);
+            // Priority 2: Local Storage
             const goals = await AsyncStorage.getItem('@daily_goals');
             return {
                 success: true,
-                data: goals ? JSON.parse(goals) : { daily_problems: 3, topics: [] }
+                data: goals ? JSON.parse(goals) : { target_problems: 3, completed_problems: 0, topics: [] }
             };
-        } catch (error) {
-            console.error('Error getting goals:', error);
-            // Fallback to original API
-            return await apiClient.get(API_ENDPOINTS.PROGRESS.GOALS);
         }
     },
 

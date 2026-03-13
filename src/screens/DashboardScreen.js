@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
     RefreshControl,
     ScrollView,
@@ -39,8 +40,15 @@ const DashboardScreen = () => {
         }
     }, []);
 
+    // Re-fetch data every time the screen comes into focus
+    useFocusEffect(
+        useCallback(() => {
+            fetchDashboardData(false);
+        }, [fetchDashboardData])
+    );
+
     useEffect(() => {
-        fetchDashboardData();
+        fetchDashboardData(true);
     }, [fetchDashboardData]);
 
     const onRefresh = () => {
@@ -87,31 +95,17 @@ const DashboardScreen = () => {
                 </Card>
             </View>
 
-            {/* Daily Goal & Overall Progress */}
+            {/* Daily Goal */}
             <Card style={styles.mainProgressCard}>
-                <View style={styles.progressRow}>
-                    <View style={styles.progressItem}>
-                        <Text style={styles.sectionTitle}>Today&apos;s Goal</Text>
-                        <Text style={styles.progressValue}>
-                            {dashboardData?.today_progress || 0} / {dashboardData?.daily_goal || 3}
-                        </Text>
-                        <ProgressBar
-                            progress={((dashboardData?.today_progress || 0) / (dashboardData?.daily_goal || 3)) * 100}
-                            height={10}
-                        />
-                    </View>
-                    <View style={styles.divider} />
-                    <View style={styles.progressItem}>
-                        <Text style={styles.sectionTitle}>Total Mastered</Text>
-                        <Text style={styles.progressValue}>
-                            {Math.round(dashboardData?.completion_percentage || 0)}%
-                        </Text>
-                        <ProgressBar
-                            progress={dashboardData?.completion_percentage || 0}
-                            color={COLORS.secondary}
-                            height={10}
-                        />
-                    </View>
+                <View style={styles.progressItem}>
+                    <Text style={styles.sectionTitle}>Today&apos;s Goal</Text>
+                    <Text style={styles.progressValue}>
+                        {dashboardData?.today_progress || 0} / {dashboardData?.daily_goal || 3}
+                    </Text>
+                    <ProgressBar
+                        progress={((dashboardData?.today_progress || 0) / (dashboardData?.daily_goal || 3)) * 100}
+                        height={10}
+                    />
                 </View>
             </Card>
 
@@ -131,35 +125,6 @@ const DashboardScreen = () => {
                     </View>
                 </View>
             )}
-
-            {/* Topic Progress */}
-            <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Learning Progress</Text>
-                </View>
-
-                {dashboardData?.topic_progress?.length > 0 ? (
-                    dashboardData.topic_progress.map((topic) => (
-                        <Card key={topic.topic_id} style={styles.topicCard} shadow="sm">
-                            <View style={styles.topicInfo}>
-                                <Text style={styles.topicName}>{topic.name}</Text>
-                                <Text style={styles.topicStats}>
-                                    {topic.questions_solved} / {topic.total_questions} Solved
-                                </Text>
-                            </View>
-                            <ProgressBar
-                                progress={topic.percentage}
-                                color={topic.percentage > 70 ? COLORS.success : COLORS.primary}
-                            />
-                        </Card>
-                    ))
-                ) : (
-                    <EmptyState
-                        title="Start Your Journey"
-                        message="Pick a topic from the Topics tab to start practicing!"
-                    />
-                )}
-            </View>
 
             {/* Recent Activity */}
             <View style={styles.section}>

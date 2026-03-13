@@ -4,7 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { authAPI, setOnUnauthorizedCallback } from '../services/api';
 
 const AuthContext = createContext({});
@@ -53,7 +53,7 @@ export const AuthProvider = ({ children }) => {
      * Register new user
      * @param {Object} data - { name, email, password }
      */
-    const register = async (data) => {
+    const register = useCallback(async (data) => {
         try {
             const response = await authAPI.register(data);
             const { token: tokenData, user: userData } = response.data;
@@ -74,13 +74,13 @@ export const AuthProvider = ({ children }) => {
                 error: error.message || 'Registration failed',
             };
         }
-    };
+    }, []);
 
     /**
      * Login user
      * @param {Object} data - { email, password }
      */
-    const login = async (data) => {
+    const login = useCallback(async (data) => {
         try {
             const response = await authAPI.login(data);
             const { token: tokenData, user: userData } = response.data;
@@ -101,12 +101,12 @@ export const AuthProvider = ({ children }) => {
                 error: error.message || 'Login failed',
             };
         }
-    };
+    }, []);
 
     /**
      * Logout user
      */
-    const logout = async () => {
+    const logout = useCallback(async () => {
         console.log('Initiating logout...');
         try {
             // Clear state first for immediate UI feedback
@@ -123,20 +123,37 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
             console.error('Logout error:', error);
         }
-    };
+    }, []);
 
     /**
-     * Update user profile
+     * Update user profile in state and storage
      * @param {Object} updatedUser
      */
-    const updateUser = async (updatedUser) => {
+    const updateUser = useCallback(async (updatedUser) => {
         try {
             await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
             setUser(updatedUser);
         } catch (error) {
             console.error('Error updating user:', error);
         }
-    };
+    }, []);
+
+    /**
+     * Refresh user profile from backend
+     */
+    const refreshProfile = useCallback(async () => {
+        try {
+            const response = await authAPI.getMe();
+            const userData = response.data || response;
+            if (userData) {
+                await updateUser(userData);
+            }
+            return { success: true, data: userData };
+        } catch (error) {
+            console.error('Refresh profile error:', error);
+            return { success: false, error };
+        }
+    }, [updateUser]);
 
     const value = {
         user,
@@ -147,6 +164,7 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         updateUser,
+        refreshProfile,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -17,27 +17,48 @@ class DailyGoalService:
         self.user_service = UserService(database)
     
     async def get_today_goal(self, user_id: str) -> DailyGoalResponse:
-        """Get or create today's daily goal"""
+        """Get or create today's daily goal with live verification"""
         today = datetime.utcnow().date()
         today_start = datetime.combine(today, datetime.min.time())
         
-        # Try to find existing goal for today
+        # 1. Count actual successes today from submissions (live truth)
+        actual_solves_today = await self.db.submissions.count_documents({
+            "user_id": user_id,
+            "status": "solved",
+            "submitted_at": {"$gte": today_start}
+        })
+        
+        # 2. Try to find existing goal
         goal_data = await self.collection.find_one({
             "user_id": user_id,
             "date": today_start
         })
         
         if goal_data:
+            # Sync if count differs
+            if goal_data.get("completed_problems", 0) != actual_solves_today:
+                achieved = actual_solves_today >= goal_data["target_problems"]
+                await self.collection.update_one(
+                    {"_id": goal_data["_id"]},
+                    {"$set": {
+                        "completed_problems": actual_solves_today,
+                        "achieved": achieved,
+                        "updated_at": datetime.utcnow()
+                    }}
+                )
+                goal_data["completed_problems"] = actual_solves_today
+                goal_data["achieved"] = achieved
+                
             goal_data["id"] = str(goal_data.pop("_id"))
             return DailyGoalResponse(**goal_data)
         
-        # Create new goal for today
+        # 3. Create new goal for today
         goal_data = {
             "user_id": user_id,
             "date": today_start,
-            "target_problems": 3,  # Default target
-            "completed_problems": 0,
-            "achieved": False,
+            "target_problems": 3,
+            "completed_problems": actual_solves_today,
+            "achieved": actual_solves_today >= 3,
             "streak_extended": False,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()

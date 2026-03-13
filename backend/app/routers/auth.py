@@ -119,8 +119,8 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         db = get_database()
         user_service = UserService(db)
         
-        # Get user
-        user = await user_service.get_user_by_id(user_id)
+        # Get user with streak sync
+        user = await user_service.get_user_with_sync(user_id)
         if not user:
             return ApiResponse(
                 success=False,

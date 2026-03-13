@@ -53,7 +53,7 @@ app.add_middleware(
 
 # Add custom middleware
 app.add_middleware(ErrorHandlerMiddleware)
-app.add_middleware(RateLimitMiddleware)
+app.add_middleware(RateLimitMiddleware, requests_per_minute=200) # Increased for dev
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
