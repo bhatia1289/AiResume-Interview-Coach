@@ -51,8 +51,25 @@ class QuestionService:
         return questions
     
     async def get_question_by_id(self, question_id: str) -> Optional[QuestionInDB]:
-        """Get question by ID"""
-        question_data = await self.collection.find_one({"_id": ObjectId(question_id)})
+        """Get question by ID (handles both ObjectId and slug)"""
+        # Try finding by ObjectId first if valid format
+        question_data = None
+        try:
+            if len(question_id) == 24 and all(c in '0123456789abcdefABCDEF' for c in question_id):
+                question_data = await self.collection.find_one({"_id": ObjectId(question_id)})
+        except:
+            pass
+            
+        # Try finding by slug/ID directly
+        if not question_data:
+            question_data = await self.collection.find_one({
+                "$or": [
+                    {"_id": question_id},
+                    {"question_id": question_id},
+                    {"slug": question_id}
+                ]
+            })
+            
         if question_data:
             question_data["id"] = str(question_data.pop("_id"))
             return QuestionInDB(**question_data)

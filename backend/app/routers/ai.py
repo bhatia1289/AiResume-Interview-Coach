@@ -8,7 +8,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.models.schemas import (
     AIHintRequest, AIHintResponse, 
     AIFeedbackRequest, AIFeedbackResponse, 
-    ApiResponse
+    AIStructuredResponse, ApiResponse
 )
 from app.database import get_database
 from app.services.ai_service import AIService
@@ -40,17 +40,20 @@ async def get_ai_hint(
         ai_service = AIService(db)
         
         # Generate hint
-        hint = await ai_service.generate_hint(
+        hint: AIStructuredResponse = await ai_service.generate_hint(
             question_id=hint_request.question_id,
             context=hint_request.context,
             user_id=user_id
         )
         
+        # Ensure we return a string for the hint field
+        hint_text = hint.hint if isinstance(hint, AIStructuredResponse) else str(hint)
+
         return ApiResponse(
             success=True,
             message="Hint generated successfully",
             data=AIHintResponse(
-                hint=hint,
+                hint=hint_text,
                 question_id=hint_request.question_id
             )
         )

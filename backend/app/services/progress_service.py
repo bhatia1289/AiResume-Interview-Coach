@@ -66,8 +66,25 @@ class ProgressService:
     
     async def _update_progress_on_solve(self, user_id: str, question_id: str):
         """Update user progress when a question is solved"""
-        # Get question details
-        question = await self.db.questions.find_one({"_id": ObjectId(question_id)})
+        # Get question details (try by ObjectId, then by slug/question_id)
+        question = None
+        try:
+            if len(question_id) == 24 and all(c in '0123456789abcdefABCDEF' for c in question_id):
+                question = await self.db.questions.find_one({"_id": ObjectId(question_id)})
+        except:
+            pass
+            
+        if not question:
+            # Try finding by slug/question_id (where question_id is stored in 'question_id' or similar field)
+            # Some implementations store slug in _id, others in a separate field
+            question = await self.db.questions.find_one({
+                "$or": [
+                    {"_id": question_id},
+                    {"question_id": question_id},
+                    {"slug": question_id}
+                ]
+            })
+
         if not question:
             return
         

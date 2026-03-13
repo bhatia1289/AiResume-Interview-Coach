@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     OPENAI_BASE_URL: str = "https://api.openai.com/v1"
     OPENAI_MODEL: str = "gpt-3.5-turbo"
 
+    # Gemini
+    GEMINI_API_KEY: Optional[str] = None
+
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 100
 

@@ -230,6 +230,7 @@ class AIStructuredResponse(BaseModel):
     hint: str
     concept_explained: str
     improvement_area: str
+    wrong_lines: List[str] = []
 
 
 # Dashboard models

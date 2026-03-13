@@ -75,6 +75,7 @@ Provide a response in EXACTLY this JSON format:
                 )
             except Exception as e:
                 logger.error(f"AI Hint Error: {e}")
+                return self._get_mock_structured_response("hint", readable_name)
 
         # Fallback mock if AI is not configured or call failed
         return self._get_mock_structured_response("hint", readable_name)
@@ -96,7 +97,8 @@ Provide a response in EXACTLY this JSON format:
         user_code = code or "No code submitted yet."
 
         prompt = f"""\
-Analyze this DSA solution.
+Analyze this DSA solution. 
+CRITICAL: Do NOT provide the complete solution. Only provide feedback to help the user improve.
 Problem: {readable_name} (slug: {question_id})
 Language: {language}
 User's Submission:
@@ -104,9 +106,10 @@ User's Submission:
 
 Provide feedback in EXACTLY this JSON format:
 {{
-    "hint": "Final summary feedback for the user.",
-    "concept_explained": "The logic or pattern they correctly or incorrectly used.",
-    "improvement_area": "Specific technical improvements needed."
+    "hint": "A summary nudge focusing on what they should rethink.",
+    "concept_explained": "The core logic error or misunderstanding in their code.",
+    "improvement_area": "A specific suggestion on how to fix the logic without giving the full code.",
+    "wrong_lines": ["List the specific lines or blocks of code that are incorrect or inefficient."]
 }}"""
 
         if self.client:
@@ -124,10 +127,13 @@ Provide feedback in EXACTLY this JSON format:
                 return AIStructuredResponse(
                     hint=parsed_json.get("hint", ""),
                     concept_explained=parsed_json.get("concept_explained", ""),
-                    improvement_area=parsed_json.get("improvement_area", "")
+                    improvement_area=parsed_json.get("improvement_area", ""),
+                    wrong_lines=parsed_json.get("wrong_lines", [])
                 )
             except Exception as e:
                 logger.error(f"AI Feedback Error: {e}")
+                # Fallback specifically if API key is invalid or other error
+                return self._get_mock_structured_response("feedback", readable_name)
 
         return self._get_mock_structured_response("feedback", readable_name)
 
@@ -143,11 +149,13 @@ Provide feedback in EXACTLY this JSON format:
             return AIStructuredResponse(
                 hint="Try using two pointers to reduce complexity from O(n^2) to O(n).",
                 concept_explained="Two-pointer technique is efficient for sorted array problems.",
-                improvement_area="Current nested loop is causing time limit issues."
+                improvement_area="Current nested loop is causing time limit issues.",
+                wrong_lines=[]
             )
         else:
             return AIStructuredResponse(
                 hint="Good approach! You've correctly identified the base case.",
                 concept_explained="Recursion with memoization helps avoid redundant calculations.",
-                improvement_area="Consider handling null/empty inputs as an edge case."
+                improvement_area="Consider handling null/empty inputs as an edge case.",
+                wrong_lines=["Line 5: Missing check for empty array", "Line 8: Index out of bounds potential"]
             )

@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Modal,
     ScrollView,
     StyleSheet,
     Text,
@@ -103,13 +104,36 @@ const ProblemDetailScreen = () => {
 
     const handleExplain = async () => {
         if (!problem) return;
+
+        // Check if code is empty or just the default placeholder
+        const isPlaceholder = code.includes('# Write your solution here') || code.trim() === '';
+        if (isPlaceholder) {
+            Alert.alert('Wait!', 'Please write the solution first');
+            return;
+        }
+
         setExplainLoading(true);
         try {
             const res = await problemsAPI.getExplanation(problemSlug, code);
             const data = res.data || res;
-            Alert.alert('🧠 Explanation', data.concept_explained || 'No explanation available.');
+            
+            const message = [
+                data.hint ? `💡 ${data.hint}` : null,
+                data.concept_explained ? `\n🧠 Concept: ${data.concept_explained}` : null,
+                data.improvement_area ? `\n\n🛠️ Improvement: ${data.improvement_area}` : null,
+                data.wrong_lines && data.wrong_lines.length > 0 
+                    ? `\n\n❌ Lines to check:\n${data.wrong_lines.map(line => `• ${line}`).join('\n')}` 
+                    : null
+            ].filter(Boolean).join('\n');
+
+            Alert.alert('Analysis & Feedback', message || 'No specific feedback available.');
         } catch (err) {
-            Alert.alert('Error', 'Could not fetch explanation.');
+            console.error('Explanation error:', err);
+            if (err.status === 401 || (err.data && err.data.error && err.data.error.includes('401'))) {
+                Alert.alert('Session Expired', 'Please log out and log in again to continue.');
+            } else {
+                Alert.alert('Error', 'Could not fetch explanation. Please ensure your backend is running on --host 0.0.0.0');
+            }
         } finally {
             setExplainLoading(false);
         }
@@ -396,6 +420,22 @@ const ProblemDetailScreen = () => {
                     </View>
                 </View>
             )}
+            {/* Loading Modal for AI Explanation/Hint */}
+            <Modal
+                transparent={true}
+                visible={explainLoading || hintLoading}
+                animationType="fade"
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.loadingModal}>
+                        <ActivityIndicator size="large" color={COLORS.primary} />
+                        <Text style={styles.loadingModalTitle}>Analyzing solution...</Text>
+                        <Text style={styles.loadingModalText}>
+                            {explainLoading ? "Analyzing your solution for deep logic feedback..." : "Generating a helpful hint to get you unstuck..."}
+                        </Text>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -773,6 +813,35 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: TYPOGRAPHY.fontSize.sm,
         fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    },
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: SPACING.xl,
+    },
+    loadingModal: {
+        backgroundColor: COLORS.surface,
+        borderRadius: BORDER_RADIUS.xl,
+        padding: SPACING.xl,
+        alignItems: 'center',
+        width: '90%',
+        ...SHADOWS.lg,
+    },
+    loadingModalTitle: {
+        fontSize: TYPOGRAPHY.fontSize.lg,
+        fontWeight: TYPOGRAPHY.fontWeight.bold,
+        color: COLORS.text,
+        marginTop: SPACING.lg,
+        marginBottom: SPACING.xs,
+    },
+    loadingModalText: {
+        fontSize: TYPOGRAPHY.fontSize.base,
+        color: COLORS.textSecondary,
+        textAlign: 'center',
+        lineHeight: 22,
     },
 });
 
