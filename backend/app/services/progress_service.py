@@ -13,6 +13,7 @@ from app.models.schemas import (
 )
 from app.services.user_service import UserService
 from app.services.daily_goal_service import DailyGoalService
+from app.services.ai_service import AIService
 
 
 class ProgressService:
@@ -22,6 +23,7 @@ class ProgressService:
         self.progress_collection = database.progress
         self.user_service = UserService(database)
         self.daily_goal_service = DailyGoalService(database)
+        self.ai_service = AIService(database)
     
     async def process_submission(
         self, 
@@ -33,8 +35,11 @@ class ProgressService:
         """Process a code submission and update progress"""
         from app.models.schemas import SubmissionStatus
         
-        # Mock submission evaluation (in real implementation, this would run tests)
-        is_correct = self._mock_evaluation(code)
+        # 1. Real AI-powered evaluation
+        eval_result = await self.ai_service.evaluate_solution(question_id, code, language)
+        is_correct = eval_result.get("is_correct", False)
+        ai_feedback = eval_result.get("feedback", "No feedback available.")
+        
         status = SubmissionStatus.SOLVED if is_correct else SubmissionStatus.ATTEMPTED
         
         # Create submission record
@@ -48,8 +53,8 @@ class ProgressService:
             "total_test_cases": 3,
             "execution_time": 0.05,  # Mock execution time
             "memory_used": 16.0,     # Mock memory usage
-            "ai_hint_used": False,   # Track if AI hint was used
-            "ai_feedback": None,
+            "ai_hint_used": False,
+            "ai_feedback": ai_feedback,
             "submitted_at": datetime.utcnow()
         }
         

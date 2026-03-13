@@ -141,12 +141,32 @@ const ProblemDetailScreen = () => {
 
     const handleSubmit = async () => {
         if (!code.trim()) return Alert.alert('Wait!', 'Code area is empty.');
+        
+        // Final sanity check for junk before sending
+        if (code.trim().length < 10) {
+            return Alert.alert('Wait!', 'Your solution is too short to be valid.');
+        }
+
         setSubmitting(true);
         try {
-            await problemsAPI.submitSolution(problemSlug, { code, language: 'python' });
-            Alert.alert('✅ Submitted', 'Your solution has been submitted for review!');
+            const res = await problemsAPI.submitSolution(problemSlug, { code, language: 'python' });
+            const result = res.data || res;
+
+            if (result.status === 'solved') {
+                Alert.alert(
+                    '✅ Solved!', 
+                    'Great job! Your solution is correct and your progress has been updated.'
+                );
+            } else {
+                const feedback = result.ai_feedback || 'Your logic is not quite there yet. Check the problem requirements and try again.';
+                Alert.alert(
+                    '❌ Incomplete', 
+                    `The evaluator provided some feedback:\n\n"${feedback}"`
+                );
+            }
         } catch (err) {
-            Alert.alert('Error', 'Submission failed. Check your internet.');
+            console.error('Submission Error:', err);
+            Alert.alert('Error', 'Submission failed. Check your internet or backend connection.');
         } finally {
             setSubmitting(false);
         }

@@ -137,6 +137,95 @@ Provide feedback in EXACTLY this JSON format:
 
         return self._get_mock_structured_response("feedback", readable_name)
 
+    async def evaluate_solution(
+        self,
+        question_id: str,
+        code: str,
+        language: str = "python"
+    ) -> Dict[str, Any]:
+        """
+        Evaluate if a solution is logically correct using AI.
+        Returns: { "is_correct": bool, "feedback": str, "score": int }
+        """
+        readable_name = question_id.replace("-", " ").title()
+        
+        prompt = f"""\
+You are a senior technical interviewer evaluating a coding solution for the problem: {readable_name}.
+Problem Slug: {question_id}
+Language: {language}
+
+User's Code:
+{code}
+
+Evaluate this code against the expected logic for this problem.
+JUNK DETECTION: If the input is random text, gibberish (e.g., 'jddhaf'), or completely unrelated to the problem, MUST set is_correct: false and provide feedback: "Invalid code structure."
+Be strict but fair.
+
+Provide a response in EXACTLY this JSON format:
+{{
+    "is_correct": true/false,
+    "feedback": "Concise feedback on why it is correct or incorrect.",
+    "score": 0-100 (where 100 is perfectly optimized, and 0 is completely wrong)
+}}"""
+
+        if self.client:
+            try:
+                response = await self.client.chat.completions.create(
+                    model=settings.OPENAI_MODEL,
+                    messages=[
+                        {"role": "system", "content": "You are a specialized code evaluator. Respond ONLY with JSON."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    response_format={"type": "json_object"} if "gpt-4" in settings.OPENAI_MODEL or "json" in settings.OPENAI_MODEL.lower() else None
+                )
+                raw_content = response.choices[0].message.content.strip()
+                print(f"DEBUG: AI Raw Eval Response: {raw_content}")
+                parsed_json = json.loads(self._clean_json(raw_content))
+                
+                return {
+                    "is_correct": bool(parsed_json.get("is_correct", False)),
+                    "feedback": str(parsed_json.get("feedback", "No feedback provided.")),
+                    "score": int(parsed_json.get("score", 0))
+                }
+            except Exception as e:
+                error_msg = str(e)
+                print(f"ERROR: AI Evaluation Failed: {error_msg}")
+                logger.error(f"AI Evaluation Error: {error_msg}")
+                # Reliable fallback logic if AI fails
+                return {
+                    "is_correct": self._mock_eval_fallback(code),
+                    "feedback": f"Evaluated using fallback logic (Error: {error_msg[:50]}...)",
+                    "score": 50
+                }
+
+        return {
+            "is_correct": self._mock_eval_fallback(code),
+            "feedback": "Evaluated using fallback logic (AI not configured).",
+            "score": 50
+        }
+
+    def _mock_eval_fallback(self, code: str) -> bool:
+        """Simple syntax-based fallback for evaluation - MUCH stricter"""
+        clean_code = code.strip()
+        # 1. Total Junk Filter: Code must be at least 30 characters long
+        if len(clean_code) < 30:
+            return False
+            
+        lower_code = clean_code.lower()
+        
+        # 2. Structure Filter: Must have basic keywords to be considered a solution
+        has_structure = ("def " in lower_code or "class " in lower_code or "function" in lower_code)
+        has_logic = ("return " in lower_code or "if " in lower_code)
+        
+        if not (has_structure and has_logic):
+            return False
+            
+        # 3. Placeholder Filter: Reject code that is just the default template
+        if "pass" in lower_code or "write your solution here" in lower_code:
+            return False
+            
+        return True
+
     def _clean_json(self, content: str) -> str:
         """Removes markdown code blocks from the string if present"""
         if content.startswith("```"):
