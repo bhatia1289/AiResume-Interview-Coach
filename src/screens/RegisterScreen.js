@@ -50,8 +50,18 @@ const RegisterScreen = () => {
 
         if (!password) {
             newErrors.password = 'Password is required';
-        } else if (password.length < 6) {
-            newErrors.password = 'Password must be at least 6 characters';
+        } else {
+            if (password.length < 8) {
+                newErrors.password = 'Password must be at least 8 characters';
+            } else if (!/[A-Z]/.test(password)) {
+                newErrors.password = 'Password must contain at least one uppercase letter';
+            } else if (!/[a-z]/.test(password)) {
+                newErrors.password = 'Password must contain at least one lowercase letter';
+            } else if ((password.match(/\d/g) || []).length < 3) {
+                newErrors.password = 'Password must contain at least 3 digits';
+            } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+                newErrors.password = 'Password must contain at least one special character';
+            }
         }
 
         if (!confirmPassword) {
@@ -122,7 +132,7 @@ const RegisterScreen = () => {
                         label="Password"
                         value={password}
                         onChangeText={setPassword}
-                        placeholder="Create a password"
+                        placeholder="Min 8 chars, A-Z, a-z, 3 digits, symbol"
                         secureTextEntry
                         error={errors.password}
                     />

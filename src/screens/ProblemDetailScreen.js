@@ -33,6 +33,31 @@ const ProblemDetailScreen = () => {
     const [explainLoading, setExplainLoading] = useState(false);
     const [error, setError] = useState(null);
     const [activeTab, setActiveTab] = useState('description'); // 'description' | 'editor'
+    const [selectedLanguage, setSelectedLanguage] = useState({ label: 'Python 3', value: 'Python3', icon: 'language-python' });
+    const [languageModalVisible, setLanguageModalVisible] = useState(false);
+    const [codesByLanguage, setCodesByLanguage] = useState({}); // Cache codes for different languages
+
+    const LANGUAGES = [
+        { label: 'Python 3', value: 'Python3', icon: 'language-python' },
+        { label: 'Java', value: 'Java', icon: 'language-java' },
+        { label: 'C++', value: 'C++', icon: 'language-cpp' },
+        { label: 'C', value: 'C', icon: 'language-c' },
+        { label: 'JavaScript', value: 'JavaScript', icon: 'language-javascript' },
+        { label: 'TypeScript', value: 'TypeScript', icon: 'language-typescript' },
+        { label: 'Go', value: 'Go', icon: 'language-go' },
+        { label: 'Rust', value: 'Rust', icon: 'language-rust' },
+        { label: 'Swift', value: 'Swift', icon: 'language-swift' },
+        { label: 'Kotlin', value: 'Kotlin', icon: 'language-kotlin' },
+        { label: 'Ruby', value: 'Ruby', icon: 'ruby' },
+        { label: 'C#', value: 'CSharp', icon: 'language-csharp' },
+        { label: 'PHP', value: 'PHP', icon: 'language-php' },
+        { label: 'SQL', value: 'SQL', icon: 'database' },
+        { label: 'R', value: 'R', icon: 'language-r' },
+        { label: 'Dart', value: 'Dart', icon: 'bullseye' },
+    ];
+    const [timeLeft, setTimeLeft] = useState(0);
+    const [timerActive, setTimerActive] = useState(false);
+    const [isTimeUp, setIsTimeUp] = useState(false);
 
     useEffect(() => {
         if (problemSlug) {
@@ -49,9 +74,29 @@ const ProblemDetailScreen = () => {
             const data = await problemsAPI.getProblemDetails(problemSlug);
             setProblem(data);
 
+            const initialTime = getTimeLimit(data.difficulty || data.level || 'easy');
+            setTimeLeft(initialTime);
+            setTimerActive(true);
+
+            // Initialize codes by language from snippets
+            const codes = {};
             if (data.codeSnippets && Array.isArray(data.codeSnippets)) {
-                const pythonSnippet = data.codeSnippets.find(s => s.lang === 'Python3' || s.lang === 'Python');
-                setCode(pythonSnippet ? pythonSnippet.code : '# Write your solution here');
+                data.codeSnippets.forEach(s => {
+                    codes[s.lang] = s.code;
+                });
+            }
+            setCodesByLanguage(codes);
+
+            // Default to Python3 if available, otherwise first available or placeholder
+            const pythonSnippet = data.codeSnippets?.find(s => s.lang === 'Python3' || s.lang === 'Python');
+            if (pythonSnippet) {
+                setCode(pythonSnippet.code);
+                setSelectedLanguage(LANGUAGES.find(l => l.value === 'Python3'));
+            } else if (data.codeSnippets?.length > 0) {
+                const first = data.codeSnippets[0];
+                setCode(first.code);
+                const langMatch = LANGUAGES.find(l => l.value === first.lang);
+                if (langMatch) setSelectedLanguage(langMatch);
             } else {
                 setCode('# Write your solution here');
             }
@@ -63,6 +108,41 @@ const ProblemDetailScreen = () => {
         }
     };
 
+    const getTimeLimit = (difficulty) => {
+        switch (difficulty?.toLowerCase()) {
+            case 'easy': return 10 * 60; // 10 minutes
+            case 'medium': return 20 * 60; // 20 minutes
+            case 'hard': return 30 * 60; // 30 minutes
+            default: return 15 * 60;
+        }
+    };
+
+    const formatTime = (seconds) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    };
+
+    useEffect(() => {
+        let interval = null;
+        if (timerActive && timeLeft > 0) {
+            interval = setInterval(() => {
+                setTimeLeft((prev) => prev - 1);
+            }, 1000);
+        } else if (timeLeft === 0 && timerActive) {
+            setTimerActive(false);
+            setIsTimeUp(true);
+            setActiveTab('description');
+            Alert.alert(
+                "⌛ Time's Up!",
+                "You've reached the time limit for this question level. The code editor has been closed.",
+                [{ text: "OK" }]
+            );
+            clearInterval(interval);
+        }
+        return () => clearInterval(interval);
+    }, [timerActive, timeLeft]);
+
     const stripHtml = (html) => {
         if (!html) return '';
         return html
@@ -73,6 +153,31 @@ const ProblemDetailScreen = () => {
             .replace(/&amp;/g, '&')
             .replace(/&quot;/g, '"')
             .replace(/&#39;/g, "'");
+    };
+
+    const handleLanguageChange = (lang) => {
+        // Save current code to cache before switching
+        setCodesByLanguage(prev => ({
+            ...prev,
+            [selectedLanguage.value]: code
+        }));
+
+        setSelectedLanguage(lang);
+        
+        // Load from cache or default template
+        const cachedCode = codesByLanguage[lang.value];
+        if (cachedCode) {
+            setCode(cachedCode);
+        } else {
+            // Try to find in problem snippets
+            const snippet = problem?.codeSnippets?.find(s => s.lang === lang.value);
+            if (snippet) {
+                setCode(snippet.code);
+            } else {
+                setCode(`// Write your ${lang.label} solution here`);
+            }
+        }
+        setLanguageModalVisible(false);
     };
 
     const handleGetHint = async () => {
@@ -149,10 +254,14 @@ const ProblemDetailScreen = () => {
 
         setSubmitting(true);
         try {
-            const res = await problemsAPI.submitSolution(problemSlug, { code, language: 'python' });
+            const res = await problemsAPI.submitSolution(problemSlug, { 
+                code, 
+                language: selectedLanguage.value.toLowerCase() 
+            });
             const result = res.data || res;
 
             if (result.status === 'solved') {
+                setTimerActive(false); // Stop the timer when solved
                 Alert.alert(
                     '✅ Solved!', 
                     'Great job! Your solution is correct and your progress has been updated.'
@@ -238,7 +347,13 @@ const ProblemDetailScreen = () => {
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[styles.tab, activeTab === 'editor' && styles.tabActive]}
-                    onPress={() => setActiveTab('editor')}
+                    onPress={() => {
+                        if (isTimeUp) {
+                            Alert.alert("Time Explired", "The time limit for this question has passed.");
+                        } else {
+                            setActiveTab('editor');
+                        }
+                    }}
                 >
                     <MaterialCommunityIcons
                         name="code-tags"
@@ -249,6 +364,21 @@ const ProblemDetailScreen = () => {
                         Code Editor
                     </Text>
                 </TouchableOpacity>
+
+                {/* Timer Display */}
+                <View style={styles.timerContainer}>
+                    <MaterialCommunityIcons 
+                        name="clock-outline" 
+                        size={16} 
+                        color={timeLeft < 60 ? COLORS.error : COLORS.textSecondary} 
+                    />
+                    <Text style={[
+                        styles.timerText, 
+                        timeLeft < 60 && { color: COLORS.error, fontWeight: 'bold' }
+                    ]}>
+                        {formatTime(timeLeft)}
+                    </Text>
+                </View>
             </View>
 
             {activeTab === 'description' ? (
@@ -356,11 +486,20 @@ const ProblemDetailScreen = () => {
                     </View>
 
                     <TouchableOpacity
-                        style={styles.goToEditorButton}
-                        onPress={() => setActiveTab('editor')}
+                        style={[styles.goToEditorButton, isTimeUp && styles.disabledButton]}
+                        onPress={() => {
+                            if (isTimeUp) {
+                                Alert.alert("Time's Up", "You can no longer access the editor for this question.");
+                            } else {
+                                setActiveTab('editor');
+                            }
+                        }}
+                        disabled={isTimeUp}
                     >
                         <MaterialCommunityIcons name="code-tags" size={20} color="#fff" />
-                        <Text style={styles.goToEditorText}>Open Code Editor</Text>
+                        <Text style={styles.goToEditorText}>
+                            {isTimeUp ? 'Time Expired' : 'Open Code Editor'}
+                        </Text>
                         <MaterialCommunityIcons name="arrow-right" size={18} color="#fff" />
                     </TouchableOpacity>
 
@@ -370,11 +509,28 @@ const ProblemDetailScreen = () => {
                 <View style={styles.editorContainer}>
                     {/* Editor Header */}
                     <View style={styles.editorHeader}>
-                        <View style={styles.editorHeaderLeft}>
-                            <MaterialCommunityIcons name="language-python" size={20} color={COLORS.primary} />
-                            <Text style={styles.editorLangLabel}>Python 3</Text>
-                        </View>
+                        <TouchableOpacity 
+                            style={styles.editorHeaderLeft}
+                            onPress={() => setLanguageModalVisible(true)}
+                        >
+                            <MaterialCommunityIcons name={selectedLanguage.icon} size={20} color={COLORS.primary} />
+                            <Text style={styles.editorLangLabel}>{selectedLanguage.label}</Text>
+                            <MaterialCommunityIcons name="chevron-down" size={16} color="#94A3B8" style={{ marginLeft: 2 }} />
+                        </TouchableOpacity>
                         <View style={styles.editorDots}>
+                            <View style={styles.editorTimer}>
+                                <MaterialCommunityIcons 
+                                    name="clock-outline" 
+                                    size={14} 
+                                    color={timeLeft < 60 ? COLORS.error : '#94A3B8'} 
+                                />
+                                <Text style={[
+                                    styles.editorTimerText,
+                                    timeLeft < 60 && { color: COLORS.error, fontWeight: 'bold' }
+                                ]}>
+                                    {formatTime(timeLeft)}
+                                </Text>
+                            </View>
                             <View style={[styles.dot, { backgroundColor: '#EF4444' }]} />
                             <View style={[styles.dot, { backgroundColor: '#F59E0B' }]} />
                             <View style={[styles.dot, { backgroundColor: '#10B981' }]} />
@@ -440,6 +596,58 @@ const ProblemDetailScreen = () => {
                     </View>
                 </View>
             )}
+            {/* Language Selection Modal */}
+            <Modal
+                visible={languageModalVisible}
+                transparent={true}
+                animationType="slide"
+                onRequestClose={() => setLanguageModalVisible(false)}
+            >
+                <TouchableOpacity 
+                    style={styles.modalOverlay} 
+                    activeOpacity={1} 
+                    onPress={() => setLanguageModalVisible(false)}
+                >
+                    <View style={styles.languageModal}>
+                        <View style={styles.languageModalHeader}>
+                            <Text style={styles.languageModalTitle}>Select Language</Text>
+                            <TouchableOpacity onPress={() => setLanguageModalVisible(false)}>
+                                <MaterialCommunityIcons name="close" size={24} color={COLORS.text} />
+                            </TouchableOpacity>
+                        </View>
+                        <ScrollView style={styles.languageList}>
+                            {LANGUAGES.map((lang) => (
+                                <TouchableOpacity
+                                    key={lang.value}
+                                    style={[
+                                        styles.languageItem,
+                                        selectedLanguage.value === lang.value && styles.languageItemActive
+                                    ]}
+                                    onPress={() => handleLanguageChange(lang)}
+                                >
+                                    <View style={styles.languageItemLeft}>
+                                        <MaterialCommunityIcons 
+                                            name={lang.icon} 
+                                            size={22} 
+                                            color={selectedLanguage.value === lang.value ? COLORS.primary : COLORS.textSecondary} 
+                                        />
+                                        <Text style={[
+                                            styles.languageItemText,
+                                            selectedLanguage.value === lang.value && styles.languageItemTextActive
+                                        ]}>
+                                            {lang.label}
+                                        </Text>
+                                    </View>
+                                    {selectedLanguage.value === lang.value && (
+                                        <MaterialCommunityIcons name="check" size={20} color={COLORS.primary} />
+                                    )}
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+
             {/* Loading Modal for AI Explanation/Hint */}
             <Modal
                 transparent={true}
@@ -537,6 +745,22 @@ const styles = StyleSheet.create({
     tabTextActive: {
         color: COLORS.primary,
         fontWeight: TYPOGRAPHY.fontWeight.semibold,
+    },
+    timerContainer: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: 6,
+    },
+    timerText: {
+        fontSize: TYPOGRAPHY.fontSize.sm,
+        color: COLORS.textSecondary,
+        fontFamily: 'monospace',
+    },
+    disabledButton: {
+        backgroundColor: COLORS.textLight,
+        opacity: 0.7,
     },
 
     // Scroll content
@@ -763,6 +987,24 @@ const styles = StyleSheet.create({
         width: 10,
         height: 10,
         borderRadius: 5,
+        marginLeft: 4,
+    },
+    editorTimer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginRight: 8,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        backgroundColor: '#0F172A',
+        borderRadius: 4,
+        borderWidth: 0.5,
+        borderColor: '#334155',
+    },
+    editorTimerText: {
+        color: '#94A3B8',
+        fontSize: 12,
+        fontFamily: 'monospace',
     },
     codeInput: {
         flex: 1,
@@ -862,6 +1104,57 @@ const styles = StyleSheet.create({
         color: COLORS.textSecondary,
         textAlign: 'center',
         lineHeight: 22,
+    },
+    // Language Modal Styles
+    languageModal: {
+        backgroundColor: COLORS.surface,
+        borderTopLeftRadius: BORDER_RADIUS.xl,
+        borderTopRightRadius: BORDER_RADIUS.xl,
+        padding: SPACING.lg,
+        width: '100%',
+        maxHeight: '60%',
+        position: 'absolute',
+        bottom: 0,
+        ...SHADOWS.lg,
+    },
+    languageModalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: SPACING.lg,
+    },
+    languageModalTitle: {
+        fontSize: TYPOGRAPHY.fontSize.lg,
+        fontWeight: TYPOGRAPHY.fontWeight.bold,
+        color: COLORS.text,
+    },
+    languageList: {
+        paddingBottom: SPACING.md,
+    },
+    languageItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: SPACING.md,
+        paddingHorizontal: SPACING.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.divider,
+    },
+    languageItemActive: {
+        backgroundColor: COLORS.primary + '08',
+    },
+    languageItemLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: SPACING.md,
+    },
+    languageItemText: {
+        fontSize: TYPOGRAPHY.fontSize.base,
+        color: COLORS.text,
+    },
+    languageItemTextActive: {
+        color: COLORS.primary,
+        fontWeight: TYPOGRAPHY.fontWeight.semibold,
     },
 });
 

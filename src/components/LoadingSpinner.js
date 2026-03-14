@@ -4,12 +4,16 @@
  */
 
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { COLORS } from '../constants/theme';
+import { COLORS, getThemeColors } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 const LoadingSpinner = ({ size = 'large', color = COLORS.primary, fullScreen = true }) => {
+    const { isDarkMode } = useTheme();
+    const colors = getThemeColors(isDarkMode);
+
     if (fullScreen) {
         return (
-            <View style={styles.fullScreen}>
+            <View style={[styles.fullScreen, { backgroundColor: colors.background }]}>
                 <ActivityIndicator size={size} color={color} />
             </View>
         );
@@ -23,7 +27,6 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: COLORS.background,
     },
 });
 

@@ -4,7 +4,8 @@
  */
 
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
-import { BORDER_RADIUS, COLORS, SHADOWS, SPACING } from '../constants/theme';
+import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, getThemeColors } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 const Card = ({
     children,
@@ -14,10 +15,13 @@ const Card = ({
     padding = 'md', // sm, md, lg
     ...props
 }) => {
+    const { isDarkMode } = useTheme();
+    const colors = getThemeColors(isDarkMode);
     const Container = onPress ? TouchableOpacity : View;
 
     const cardStyles = [
         styles.card,
+        { backgroundColor: colors.card },
         SHADOWS[shadow],
         styles[`padding${padding.charAt(0).toUpperCase() + padding.slice(1)}`],
         style,

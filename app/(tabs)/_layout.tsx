@@ -5,26 +5,30 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { COLORS } from '../../src/constants/theme';
+import { COLORS, getThemeColors } from '../../src/constants/theme';
+import { useTheme } from '../../src/context/ThemeContext';
 
 export default function TabLayout() {
+  const { isDarkMode } = useTheme();
+  const colors = getThemeColors(isDarkMode);
+
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textSecondary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: COLORS.surface,
-          borderTopColor: COLORS.border,
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
           borderTopWidth: 1,
           paddingBottom: 5,
           paddingTop: 5,
           height: 60,
         },
         headerStyle: {
-          backgroundColor: COLORS.primary,
+          backgroundColor: isDarkMode ? colors.surface : COLORS.primary,
         },
-        headerTintColor: COLORS.surface,
+        headerTintColor: isDarkMode ? colors.text : COLORS.surface,
         headerTitleStyle: {
           fontWeight: 'bold',
         },

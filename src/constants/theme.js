@@ -4,13 +4,13 @@
  */
 
 export const COLORS = {
-    // Primary colors
-    primary: '#6366F1',      // Indigo
-    primaryDark: '#4F46E5',
-    primaryLight: '#818CF8',
+    // Primary colors (Premium Violet)
+    primary: '#7C3AED',
+    primaryDark: '#6D28D9',
+    primaryLight: '#8B5CF6',
 
-    // Secondary colors
-    secondary: '#10B981',    // Green
+    // Secondary colors (Emerald)
+    secondary: '#10B981',
     secondaryDark: '#059669',
     secondaryLight: '#34D399',
 
@@ -20,14 +20,14 @@ export const COLORS = {
     hard: '#EF4444',         // Red
 
     // Neutral colors
-    background: '#F9FAFB',
+    background: '#F8FAFC',
     surface: '#FFFFFF',
     card: '#FFFFFF',
 
     // Text colors
-    text: '#111827',
-    textSecondary: '#6B7280',
-    textLight: '#9CA3AF',
+    text: '#0F172A',
+    textSecondary: '#64748B',
+    textLight: '#94A3B8',
 
     // Status colors
     success: '#10B981',
@@ -36,13 +36,32 @@ export const COLORS = {
     info: '#3B82F6',
 
     // Border and divider
-    border: '#E5E7EB',
-    divider: '#F3F4F6',
+    border: '#E2E8F0',
+    divider: '#F1F5F9',
 
-    // Dark mode (optional for future)
-    darkBackground: '#111827',
-    darkSurface: '#1F2937',
-    darkText: '#F9FAFB',
+    // Dark mode colors (Deep Slate)
+    darkBackground: '#0F172A',
+    darkSurface: '#1E293B',
+    darkCard: '#1E293B',
+    darkText: '#F8FAFC',
+    darkTextSecondary: '#94A3B8',
+    darkDivider: '#334155',
+    darkBorder: '#334155',
+};
+
+export const getThemeColors = (isDarkMode) => {
+    if (!isDarkMode) return COLORS;
+
+    return {
+        ...COLORS,
+        background: COLORS.darkBackground,
+        surface: COLORS.darkSurface,
+        card: COLORS.darkCard,
+        text: COLORS.darkText,
+        textSecondary: COLORS.darkTextSecondary,
+        divider: COLORS.darkDivider,
+        border: COLORS.darkBorder,
+    };
 };
 
 export const TYPOGRAPHY = {

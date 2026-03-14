@@ -4,7 +4,8 @@
  */
 
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
-import { BORDER_RADIUS, COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
+import { BORDER_RADIUS, COLORS, SPACING, TYPOGRAPHY, getThemeColors } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 const Button = ({
     title,
@@ -17,6 +18,9 @@ const Button = ({
     style,
     textStyle,
 }) => {
+    const { isDarkMode } = useTheme();
+    const colors = getThemeColors(isDarkMode);
+
     const buttonStyles = [
         styles.button,
         styles[variant],
@@ -29,6 +33,8 @@ const Button = ({
         styles.text,
         styles[`${variant}Text`],
         styles[`${size}Text`],
+        (variant === 'primary' || variant === 'secondary') && { color: colors.surface },
+        variant === 'outline' && { color: COLORS.primary },
         textStyle,
     ];
 
@@ -41,7 +47,7 @@ const Button = ({
         >
             {loading ? (
                 <ActivityIndicator
-                    color={variant === 'primary' ? COLORS.surface : COLORS.primary}
+                    color={variant === 'primary' ? colors.surface : COLORS.primary}
                 />
             ) : (
                 <>
