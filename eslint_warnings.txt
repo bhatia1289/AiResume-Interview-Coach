@@ -1,0 +1,37 @@
+
+C:\Users\HP\Desktop\AiResume-Interview-Coach\app\(tabs)\profile.tsx
+   4:69  warning  'Switch' is defined but never used      @typescript-eslint/no-unused-vars
+   4:95  warning  'Animated' is defined but never used    @typescript-eslint/no-unused-vars
+   6:8   warning  'Button' is defined but never used      @typescript-eslint/no-unused-vars
+   8:27  warning  'TYPOGRAPHY' is defined but never used  @typescript-eslint/no-unused-vars
+  47:34  warning  'error' is defined but never used       @typescript-eslint/no-unused-vars
+
+C:\Users\HP\Desktop\AiResume-Interview-Coach\src\components\HintComponent.js
+   57:8  warning  React Hook useEffect has a missing dependency: 'dots'. Either include it or remove the dependency array      react-hooks/exhaustive-deps
+  106:8  warning  React Hook useEffect has a missing dependency: 'fadeAnim'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\HP\Desktop\AiResume-Interview-Coach\src\context\AuthContext.js
+  29:8  warning  React Hook useEffect has a missing dependency: 'logout'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\HP\Desktop\AiResume-Interview-Coach\src\screens\DashboardScreen.js
+   13:8    warning  'Card' is defined but never used                                 no-unused-vars
+   14:8    warning  'EmptyState' is defined but never used                           no-unused-vars
+  115:100  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+C:\Users\HP\Desktop\AiResume-Interview-Coach\src\screens\ProblemDetailScreen.js
+   69:8   warning  React Hook useEffect has a missing dependency: 'fetchProblemDetails'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  198:18  warning  'err' is defined but never used. Allowed unused caught errors must match /^_/u                                          no-unused-vars
+
+C:\Users\HP\Desktop\AiResume-Interview-Coach\src\screens\ProblemsScreen.js
+  41:8  warning  React Hook useEffect has a missing dependency: 'fetchProblems'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\HP\Desktop\AiResume-Interview-Coach\src\screens\ProgressScreen.js
+  14:8   warning  'C:\Users\HP\Desktop\AiResume-Interview-Coach\node_modules\react-native\index.js' imported multiple times  import/no-duplicates
+  22:34  warning  'C:\Users\HP\Desktop\AiResume-Interview-Coach\node_modules\react-native\index.js' imported multiple times  import/no-duplicates
+
+C:\Users\HP\Desktop\AiResume-Interview-Coach\src\screens\TopicsScreen.js
+  39:8  warning  React Hook useEffect has a missing dependency: 'filterTopics'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+✖ 17 problems (1 error, 16 warnings)
+  0 errors and 1 warning potentially fixable with the `--fix` option.
+

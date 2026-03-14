@@ -1,0 +1,8 @@
+app/(tabs)/profile.tsx(13,13): error TS2339: Property 'user' does not exist on type '{}'.
+app/(tabs)/profile.tsx(13,19): error TS2339: Property 'logout' does not exist on type '{}'.
+app/(tabs)/profile.tsx(13,27): error TS2339: Property 'refreshProfile' does not exist on type '{}'.
+app/(tabs)/profile.tsx(88,22): error TS2741: Property 'onPress' is missing in type '{ children: Element[]; style: ({ flex: number; alignItems: "center"; padding: number; borderRadius: number; borderWidth: number; } | { backgroundColor: string; borderColor: string; })[]; }' but required in type '{ [x: string]: any; children: any; onPress: any; style: any; shadow?: string | undefined; padding?: string | undefined; }'.
+app/(tabs)/profile.tsx(95,22): error TS2741: Property 'onPress' is missing in type '{ children: Element[]; style: ({ flex: number; alignItems: "center"; padding: number; borderRadius: number; borderWidth: number; } | { backgroundColor: string; borderColor: string; })[]; }' but required in type '{ [x: string]: any; children: any; onPress: any; style: any; shadow?: string | undefined; padding?: string | undefined; }'.
+app/(tabs)/profile.tsx(108,18): error TS2741: Property 'onPress' is missing in type '{ children: Element[]; style: ({ borderRadius: number; padding: number; borderWidth: number; borderColor: string; } | { backgroundColor: string; })[]; }' but required in type '{ [x: string]: any; children: any; onPress: any; style: any; shadow?: string | undefined; padding?: string | undefined; }'.
+app/_layout.tsx(12,11): error TS2339: Property 'isAuthenticated' does not exist on type '{}'.
+app/_layout.tsx(12,28): error TS2339: Property 'isLoading' does not exist on type '{}'.
