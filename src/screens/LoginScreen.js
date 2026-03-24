@@ -44,6 +44,8 @@ const LoginScreen = () => {
             newErrors.password = 'Password is required';
         } else if (password.length < 6) {
             newErrors.password = 'Password must be at least 6 characters';
+        } else if (new TextEncoder().encode(password).length > 72) {
+            newErrors.password = 'Password is too long (max 72 bytes)';
         }
 
         setErrors(newErrors);

@@ -53,6 +53,8 @@ const RegisterScreen = () => {
         } else {
             if (password.length < 8) {
                 newErrors.password = 'Password must be at least 8 characters';
+            } else if (new TextEncoder().encode(password).length > 72) {
+                newErrors.password = 'Password is too long (max 72 bytes)';
             } else if (!/[A-Z]/.test(password)) {
                 newErrors.password = 'Password must contain at least one uppercase letter';
             } else if (!/[a-z]/.test(password)) {

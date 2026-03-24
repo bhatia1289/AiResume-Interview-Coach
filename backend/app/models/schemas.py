@@ -49,6 +49,11 @@ class UserCreate(UserBase):
     @field_validator('password')
     @classmethod
     def password_complexity(cls, v: str) -> str:
+        # Check byte length for bcrypt (72 bytes)
+        pass_bytes = v.encode('utf-8')
+        if len(pass_bytes) > 72:
+            raise ValueError('Password cannot be longer than 72 bytes. Please use a shorter password or remove some special characters.')
+        
         if not re.search(r'[A-Z]', v):
             raise ValueError('Password must contain at least one uppercase letter')
         if not re.search(r'[a-z]', v):
