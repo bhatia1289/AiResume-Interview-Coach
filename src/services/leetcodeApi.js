@@ -73,6 +73,21 @@ export const leetcodeAPI = {
     },
 
     /**
+     * Get the TOTAL problem count for a tag without downloading all problems
+     * @param {string} tag - Topic tag
+     * @returns {number} Total problem count reported by the API
+     */
+    getTotalByTag: async (tag) => {
+        const params = new URLSearchParams();
+        params.append('limit', 1); // minimal payload
+        const response = await leetcodeClient.get(`/problems/tag/${tag}?${params.toString()}`);
+        if (response && typeof response.total === 'number') {
+            return response.total;
+        }
+        return null; // signal to caller to use fallback
+    },
+
+    /**
      * Get specific problem details
      * @param {string} problemSlug - Problem slug (e.g., 'contains-duplicate-ii')
      */

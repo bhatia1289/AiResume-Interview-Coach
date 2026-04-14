@@ -58,16 +58,13 @@ const TopicsScreen = () => {
                         
                         // Check if this is a working tag before making API call
                         if (isWorkingTag(leetCodeTag)) {
-                            // Fetch real problems for this topic to get the count
-                            const problems = await problemsAPI.getProblemsByTopic(topicName, 'all', 1);
-                            
                             return {
                                 ...topic,
                                 id: topic.id || topic.name?.toLowerCase().replace(/\s+/g, '-'),
                                 name: topicName,
                                 description: topic.description || 'Practice problems for this topic',
                                 difficulty: topic.difficulty || 'mixed',
-                                problems_count: problems.length, // Real count from API
+                                problems_count: 50, // App loads 50 problems per topic
                                 progress: topic.progress || 0,
                                 solved_problems: topic.solved_problems || 0,
                                 icon: topic.icon || '📝',
@@ -81,7 +78,7 @@ const TopicsScreen = () => {
                                 name: topicName,
                                 description: topic.description || 'Practice problems for this topic',
                                 difficulty: topic.difficulty || 'mixed',
-                                problems_count: topic.problems_count || 25, // Fallback count
+                                problems_count: topic.problemsCount || topic.problems_count || 50,
                                 progress: topic.progress || 0,
                                 solved_problems: topic.solved_problems || 0,
                                 icon: topic.icon || '📝',

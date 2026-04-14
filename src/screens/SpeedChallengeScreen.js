@@ -3,6 +3,7 @@
  * Timed challenge mode: 5 random problems, race the clock
  */
 
+import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -25,6 +26,7 @@ const DIFFICULTIES = [
 ];
 
 const SpeedChallengeScreen = () => {
+    const router = useRouter();
     const [phase, setPhase] = useState('setup'); // setup | challenge | result
     const [difficulty, setDifficulty] = useState(null);
     const [problems, setProblems] = useState([]);
@@ -96,7 +98,11 @@ const SpeedChallengeScreen = () => {
         const color = difficultyColor(item.difficulty);
         return (
             <View style={[styles.problemCard, status === 'done' && styles.cardDone, status === 'skip' && styles.cardSkip]}>
-                <View style={styles.problemLeft}>
+                <TouchableOpacity 
+                    style={styles.problemLeft} 
+                    onPress={() => router.push({ pathname: '/problem-detail', params: { problemSlug: item.titleSlug || item.id, fromChallenge: '1' } })}
+                    activeOpacity={0.7}
+                >
                     <Text style={styles.problemNum}>{index + 1}</Text>
                     <View style={styles.problemInfo}>
                         <Text style={styles.problemTitle} numberOfLines={1}>{item.name}</Text>
@@ -104,7 +110,7 @@ const SpeedChallengeScreen = () => {
                             <Text style={[styles.diffText, { color }]}>{item.difficulty}</Text>
                         </View>
                     </View>
-                </View>
+                </TouchableOpacity>
                 {!status && (
                     <View style={styles.actionBtns}>
                         <TouchableOpacity style={styles.doneBtn} onPress={() => markStatus(item.id || item.titleSlug, 'done')} activeOpacity={0.8}>

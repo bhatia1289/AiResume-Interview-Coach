@@ -25,7 +25,6 @@ const FEATURES = [
     { id: 'search',       emoji: '🔍', name: 'Search',         description: 'Find by keyword',        route: '/search',         accent: '#3B82F6' },
     { id: 'bookmarks',    emoji: '🔖', name: 'Bookmarks',      description: 'Saved problems',          route: '/bookmarks',      accent: '#8B5CF6' },
     { id: 'history',      emoji: '📝', name: 'History',        description: 'Past submissions',        route: '/attempt-history',accent: '#10B981' },
-    { id: 'retry',        emoji: '🔁', name: 'Retry List',     description: 'Wrong submissions',       route: '/retry',          accent: '#EF4444' },
     { id: 'interview',    emoji: '💬', name: 'AI Interview',   description: 'Mock interview AI',       route: '/interview-mode', accent: '#7C3AED' },
     { id: 'concepts',     emoji: '📖', name: 'Concept Cards',  description: '20 DSA flashcards',       route: '/concept-cards',  accent: '#EC4899' },
     { id: 'speed',        emoji: '⏱️', name: 'Speed Challenge','description': 'Race the clock',        route: '/speed-challenge',accent: '#F97316' },

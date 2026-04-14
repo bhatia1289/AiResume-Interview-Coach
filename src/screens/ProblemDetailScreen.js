@@ -3,7 +3,7 @@
  * Detailed view of a problem with code editor and AI assistance
  */
 
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -19,10 +19,12 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { problemsAPI } from '../services/api';
+import { dsaFeaturesService } from '../services/dsaFeaturesService';
 import { BORDER_RADIUS, COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/theme';
 
 const ProblemDetailScreen = () => {
-    const { problemSlug } = useLocalSearchParams();
+    const router = useRouter();
+    const { problemSlug, fromChallenge } = useLocalSearchParams();
     const { height } = useWindowDimensions();
 
     const [problem, setProblem] = useState(null);
@@ -36,6 +38,7 @@ const ProblemDetailScreen = () => {
     const [selectedLanguage, setSelectedLanguage] = useState({ label: 'Python 3', value: 'Python3', icon: 'language-python' });
     const [languageModalVisible, setLanguageModalVisible] = useState(false);
     const [codesByLanguage, setCodesByLanguage] = useState({}); // Cache codes for different languages
+    const [isBookmarked, setIsBookmarked] = useState(false);
 
     const LANGUAGES = [
         { label: 'Python 3', value: 'Python3', icon: 'language-python' },
@@ -62,16 +65,61 @@ const ProblemDetailScreen = () => {
     useEffect(() => {
         if (problemSlug) {
             fetchProblemDetails();
+            checkBookmarkStatus();
         } else {
             setError('No problem identifier provided');
             setLoading(false);
         }
     }, [problemSlug]);
 
+    const checkBookmarkStatus = async () => {
+        if (!problemSlug) return;
+        const status = await dsaFeaturesService.isBookmarked(problemSlug);
+        setIsBookmarked(status);
+    };
+
+    const toggleBookmark = async () => {
+        if (!problem) return;
+        try {
+            if (isBookmarked) {
+                await dsaFeaturesService.removeBookmark(problemSlug);
+                setIsBookmarked(false);
+            } else {
+                await dsaFeaturesService.addBookmark({
+                    slug: problemSlug,
+                    title: problem.title || problemSlug,
+                    difficulty: problem.difficulty || problem.level || 'N/A'
+                });
+                setIsBookmarked(true);
+            }
+        } catch (error) {
+            console.error('Bookmark toggle error:', error);
+            Alert.alert('Error', 'Failed to update bookmark');
+        }
+    };
+
     const fetchProblemDetails = async () => {
         try {
             setLoading(true);
             const data = await problemsAPI.getProblemDetails(problemSlug);
+
+            // If the API returned no description (premium/locked problems), generate one via AI
+            if (!data.content && !data.description) {
+                try {
+                    const aiRes = await problemsAPI.getHint(problemSlug, '');
+                    const aiData = aiRes?.data || aiRes;
+                    const concept = aiData?.concept_explained || '';
+                    const hint = aiData?.hint || '';
+                    if (concept || hint) {
+                        data.content = `📌 Problem: ${data.title || problemSlug.replace(/-/g, ' ')}\n\n` +
+                            (concept ? `🧠 Core Concept:\n${concept}\n\n` : '') +
+                            (hint ? `💡 Approach Hint:\n${hint}` : '');
+                    }
+                } catch {
+                    // Silently fall through — description will show the problem title as fallback
+                }
+            }
+
             setProblem(data);
 
             const initialTime = getTimeLimit(data.difficulty || data.level || 'easy');
@@ -262,12 +310,34 @@ const ProblemDetailScreen = () => {
 
             if (result.status === 'solved') {
                 setTimerActive(false); // Stop the timer when solved
-                Alert.alert(
-                    '✅ Solved!', 
-                    'Great job! Your solution is correct and your progress has been updated.'
-                );
+                
+                // Save attempt into local history
+                await dsaFeaturesService.saveAttempt(problemSlug, problem?.title, code, selectedLanguage.value, 'solved', null);
+                
+                // Update overall progress state globally
+                const topic = problem?.topicTags?.[0]?.name || problem?.topicTags?.[0] || 'Unknown';
+                const difficulty = problem?.difficulty || problem?.level || 'easy';
+                await problemsAPI.markProblemSolved(problemSlug, topic, difficulty);
+
+                if (fromChallenge) {
+                    // Opened from Speed Challenge — go back after alert
+                    Alert.alert(
+                        '✅ Solved!',
+                        'Great job! Going back to the challenge for your next problem.',
+                        [{ text: 'Continue', onPress: () => router.back() }]
+                    );
+                } else {
+                    Alert.alert(
+                        '✅ Solved!', 
+                        'Great job! Your solution is correct and your progress has been updated.'
+                    );
+                }
             } else {
                 const feedback = result.ai_feedback || 'Your logic is not quite there yet. Check the problem requirements and try again.';
+                
+                // Save attempt into local history
+                await dsaFeaturesService.saveAttempt(problemSlug, problem?.title, code, selectedLanguage.value, 'failed', feedback);
+                
                 Alert.alert(
                     '❌ Incomplete', 
                     `The evaluator provided some feedback:\n\n"${feedback}"`
@@ -327,6 +397,15 @@ const ProblemDetailScreen = () => {
                     headerTintColor: COLORS.text,
                     headerTitleStyle: { fontWeight: 'bold', fontSize: 16 },
                     headerShadowVisible: false,
+                    headerRight: () => (
+                        <TouchableOpacity onPress={toggleBookmark} style={{ padding: 8, marginRight: SPACING.xs }}>
+                            <MaterialCommunityIcons
+                                name={isBookmarked ? "bookmark" : "bookmark-outline"}
+                                size={26}
+                                color={isBookmarked ? COLORS.primary : COLORS.textSecondary}
+                            />
+                        </TouchableOpacity>
+                    ),
                 }}
             />
 
@@ -423,7 +502,8 @@ const ProblemDetailScreen = () => {
                         </View>
                         <View style={styles.divider} />
                         <Text style={styles.descriptionText}>
-                            {stripHtml(problem?.content) || stripHtml(problem?.description) || 'No description available.'}
+                            {stripHtml(problem?.content) || stripHtml(problem?.description) || 
+                             (problem?.title ? `📌 ${problem.title}\n\nThis problem description is not available for this question. Use the "Get Hint" button below to get an AI-generated explanation of the problem and approach.` : 'No description available.')}
                         </Text>
                     </View>
 

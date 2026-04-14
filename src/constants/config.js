@@ -43,7 +43,8 @@ const getApiBaseUrl = () => {
   }
 
   // 4. Last resort fallback
-  return 'http://localhost:8000/api';
+  const isAndroid = typeof navigator !== 'undefined' && navigator.product === 'ReactNative' && require('react-native').Platform.OS === 'android';
+  return isAndroid ? 'http://10.0.2.2:8000/api' : 'http://localhost:8000/api';
 };
 
 export const API_BASE_URL = getApiBaseUrl();

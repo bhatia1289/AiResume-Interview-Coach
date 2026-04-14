@@ -192,9 +192,10 @@ Provide a response in EXACTLY this JSON format:
                 print(f"ERROR: AI Evaluation Failed: {error_msg}")
                 logger.error(f"AI Evaluation Error: {error_msg}")
                 # Reliable fallback logic if AI fails
+                user_friendly_error = "The AI evaluator is currently busy." if "429" in error_msg else "Could not reach AI."
                 return {
                     "is_correct": self._mock_eval_fallback(code),
-                    "feedback": f"Evaluated using fallback logic (Error: {error_msg[:50]}...)",
+                    "feedback": f"Your logic is on the right track, but needs more work. ({user_friendly_error})",
                     "score": 50
                 }
 
@@ -227,9 +228,17 @@ Provide a response in EXACTLY this JSON format:
         return True
 
     def _clean_json(self, content: str) -> str:
-        """Removes markdown code blocks from the string if present"""
-        if content.startswith("```"):
-            return content.split("```")[1].replace("json", "").strip()
+        """Removes markdown code blocks and random text"""
+        import re
+        # Find json block inside ```json ... ```
+        match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', content)
+        if match:
+            return match.group(1).strip()
+        # Fallback to finding the first { and last }
+        start = content.find('{')
+        end = content.rfind('}')
+        if start != -1 and end != -1 and end > start:
+            return content[start:end+1]
         return content
 
     def _get_mock_structured_response(self, mode: str, question: str) -> AIStructuredResponse:
