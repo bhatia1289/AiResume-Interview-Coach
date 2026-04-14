@@ -32,6 +32,14 @@ function RootLayoutNav() {
           name="register"
           options={{ title: 'Register', headerShown: false }}
         />
+        <Stack.Screen
+          name="forgot-password"
+          options={{ title: 'Forgot Password', headerShown: false }}
+        />
+        <Stack.Screen
+          name="reset-password"
+          options={{ title: 'Reset Password', headerShown: false }}
+        />
       </Stack>
     );
   }

@@ -63,22 +63,40 @@ const DashboardScreen = () => {
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(20)).current;
+    const statsAnim = useRef(new Animated.Value(0)).current;
+    const activityAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-        Animated.parallel([
-            Animated.timing(fadeAnim, {
-                toValue: 1,
-                duration: 800,
-                useNativeDriver: true,
-            }),
-            Animated.spring(slideAnim, {
-                toValue: 0,
-                friction: 8,
-                tension: 40,
-                useNativeDriver: true,
-            })
+        Animated.sequence([
+            Animated.parallel([
+                Animated.timing(fadeAnim, {
+                    toValue: 1,
+                    duration: 800,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(slideAnim, {
+                    toValue: 0,
+                    friction: 8,
+                    tension: 40,
+                    useNativeDriver: true,
+                })
+            ]),
+            Animated.stagger(200, [
+                Animated.spring(statsAnim, {
+                    toValue: 1,
+                    friction: 7,
+                    tension: 50,
+                    useNativeDriver: true,
+                }),
+                Animated.spring(activityAnim, {
+                    toValue: 1,
+                    friction: 7,
+                    tension: 50,
+                    useNativeDriver: true,
+                })
+            ])
         ]).start();
-    }, [fadeAnim, slideAnim]);
+    }, [fadeAnim, slideAnim, statsAnim, activityAnim]);
 
     if (loading) return <LoadingSpinner />;
 
@@ -130,7 +148,18 @@ const DashboardScreen = () => {
             )}
 
             {/* Main Stats Grid */}
-            <View style={styles.statsGrid}>
+            <Animated.View style={[
+                styles.statsGrid,
+                { 
+                    opacity: statsAnim,
+                    transform: [{ 
+                        translateY: statsAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [20, 0]
+                        }) 
+                    }] 
+                }
+            ]}>
                 <View style={[styles.statCard, { backgroundColor: isDarkMode ? '#1E293B' : '#FEF3C7', borderColor: isDarkMode ? '#334155' : '#FDE68A' }]}>
                     <View style={styles.statIconWrapper}>
                         <Ionicons name="flame" size={24} color="#D97706" />
@@ -145,7 +174,7 @@ const DashboardScreen = () => {
                     <Text style={[styles.statValue, { color: colors.text }]}>{dashboardData?.total_solved || 0}</Text>
                     <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Problems Solved</Text>
                 </View>
-            </View>
+            </Animated.View>
 
             {/* Daily Goal */}
             {/* Daily Goal */}
@@ -203,7 +232,18 @@ const DashboardScreen = () => {
             )}
 
             {/* Recent Activity */}
-            <View style={styles.section}>
+            <Animated.View style={[
+                styles.section,
+                {
+                    opacity: activityAnim,
+                    transform: [{
+                        translateX: activityAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [30, 0]
+                        })
+                    }]
+                }
+            ]}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Activity</Text>
                 <View style={[styles.activityContainerCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                     {dashboardData?.recent_activity?.length > 0 ? (
@@ -248,7 +288,7 @@ const DashboardScreen = () => {
                         </View>
                     )}
                 </View>
-            </View>
+            </Animated.View>
         </ScrollView>
     );
 };

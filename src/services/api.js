@@ -118,6 +118,27 @@ export const authAPI = {
     getMe: async () => {
         return await apiClient.get(API_ENDPOINTS.AUTH.ME);
     },
+    
+    /**
+     * Initiate password reset
+     */
+    forgotPassword: async (data) => {
+        return await apiClient.post(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, data);
+    },
+    
+    /**
+     * Reset password
+     */
+    resetPassword: async (data) => {
+        return await apiClient.post(API_ENDPOINTS.AUTH.RESET_PASSWORD, data);
+    },
+
+    /**
+     * Update profile picture
+     */
+    updateProfilePic: async (data) => {
+        return await apiClient.post(API_ENDPOINTS.AUTH.UPDATE_PROFILE_PIC, data);
+    },
 };
 
 // ============================================

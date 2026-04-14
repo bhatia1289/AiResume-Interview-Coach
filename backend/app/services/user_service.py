@@ -163,3 +163,25 @@ class UserService:
                 }
             }
         )
+
+    async def reset_password(self, email: str, hashed_password: str) -> bool:
+        """Reset user password by email"""
+        result = await self.collection.update_one(
+            {"email": email},
+            {
+                "$set": {
+                    "password": hashed_password,
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        return result.modified_count > 0
+
+    async def update_user(self, user_id: str, update_data: dict) -> bool:
+        """Update any user field"""
+        update_data["updated_at"] = datetime.utcnow()
+        result = await self.collection.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": update_data}
+        )
+        return result.modified_count > 0

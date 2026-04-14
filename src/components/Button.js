@@ -3,7 +3,8 @@
  * Reusable button with different variants
  */
 
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, Animated, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
+import { useRef } from 'react';
 import { BORDER_RADIUS, COLORS, SPACING, TYPOGRAPHY, getThemeColors } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 
@@ -20,6 +21,23 @@ const Button = ({
 }) => {
     const { isDarkMode } = useTheme();
     const colors = getThemeColors(isDarkMode);
+    const scaleAnim = useRef(new Animated.Value(1)).current;
+
+    const handlePressIn = () => {
+        Animated.spring(scaleAnim, {
+            toValue: 0.95,
+            useNativeDriver: true,
+        }).start();
+    };
+
+    const handlePressOut = () => {
+        Animated.spring(scaleAnim, {
+            toValue: 1,
+            friction: 3,
+            tension: 40,
+            useNativeDriver: true,
+        }).start();
+    };
 
     const buttonStyles = [
         styles.button,
@@ -27,6 +45,7 @@ const Button = ({
         styles[size],
         disabled && styles.disabled,
         style,
+        { transform: [{ scale: scaleAnim }] },
     ];
 
     const textStyles = [
@@ -39,23 +58,25 @@ const Button = ({
     ];
 
     return (
-        <TouchableOpacity
-            style={buttonStyles}
+        <TouchableWithoutFeedback
             onPress={onPress}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
             disabled={disabled || loading}
-            activeOpacity={0.7}
         >
-            {loading ? (
-                <ActivityIndicator
-                    color={variant === 'primary' ? colors.surface : COLORS.primary}
-                />
-            ) : (
-                <>
-                    {icon && icon}
-                    <Text style={textStyles}>{title}</Text>
-                </>
-            )}
-        </TouchableOpacity>
+            <Animated.View style={buttonStyles}>
+                {loading ? (
+                    <ActivityIndicator
+                        color={variant === 'primary' ? colors.surface : COLORS.primary}
+                    />
+                ) : (
+                    <>
+                        {icon && icon}
+                        <Text style={textStyles}>{title}</Text>
+                    </>
+                )}
+            </Animated.View>
+        </TouchableWithoutFeedback>
     );
 };
 

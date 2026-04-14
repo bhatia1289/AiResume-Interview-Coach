@@ -4,19 +4,23 @@
  */
 
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Alert,
+    Animated,
+    Image,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
+    StatusBar,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View,
 } from 'react-native';
 import Button from '../components/Button';
 import Input from '../components/Input';
-import { COLORS, SPACING, TYPOGRAPHY } from '../constants/theme';
+import { COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 
 const LoginScreen = () => {
@@ -27,6 +31,33 @@ const LoginScreen = () => {
     const [password, setPassword] = useState('');
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
+
+    // Animations
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(30)).current;
+    const brandScale = useRef(new Animated.Value(0.9)).current;
+
+    useEffect(() => {
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 1000,
+                useNativeDriver: true,
+            }),
+            Animated.spring(slideAnim, {
+                toValue: 0,
+                tension: 20,
+                friction: 7,
+                useNativeDriver: true,
+            }),
+            Animated.spring(brandScale, {
+                toValue: 1,
+                tension: 50,
+                friction: 7,
+                useNativeDriver: true,
+            })
+        ]).start();
+    }, []);
 
     /**
      * Validate form inputs
@@ -71,100 +102,229 @@ const LoginScreen = () => {
     };
 
     return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-            <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                keyboardShouldPersistTaps="handled"
+        <View style={styles.container}>
+            <StatusBar barStyle="dark-content" />
+            
+            {/* Premium Background Decorations */}
+            <View style={styles.bgDecoration1} />
+            <View style={styles.bgDecoration2} />
+            <View style={styles.bgDecoration3} />
+
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             >
-                <View style={styles.header}>
-                    <Text style={styles.title}>Welcome Back!</Text>
-                    <Text style={styles.subtitle}>
-                        Sign in to continue your DSA learning journey
-                    </Text>
-                </View>
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    <Animated.View style={[
+                        styles.brandContainer,
+                        { opacity: fadeAnim, transform: [{ scale: brandScale }] }
+                    ]}>
+                        <View style={styles.logoCircle}>
+                            <Text style={styles.logoText}>BG</Text>
+                        </View>
+                        <Text style={styles.brandName}>ByteGrind</Text>
+                        <Text style={styles.brandTagline}>the daily grind of dsa prep</Text>
+                    </Animated.View>
 
-                <View style={styles.form}>
-                    <Input
-                        label="Email"
-                        value={email}
-                        onChangeText={setEmail}
-                        placeholder="Enter your email"
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        error={errors.email}
-                    />
+                    <Animated.View style={[
+                        styles.contentWrapper,
+                        { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
+                    ]}>
+                        <View style={styles.header}>
+                            <Text style={styles.title}>Welcome Back!</Text>
+                            <Text style={[styles.subtitle, { color: COLORS.primary }]}>
+                                Let's master algorithms together! 🚀
+                            </Text>
+                        </View>
 
-                    <Input
-                        label="Password"
-                        value={password}
-                        onChangeText={setPassword}
-                        placeholder="Enter your password"
-                        secureTextEntry
-                        error={errors.password}
-                    />
+                        <View style={styles.form}>
+                            <Input
+                                label="Email"
+                                value={email}
+                                onChangeText={setEmail}
+                                placeholder="Enter your email"
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                                error={errors.email}
+                            />
 
-                    <Button
-                        title="Login"
-                        onPress={handleLogin}
-                        loading={loading}
-                        style={styles.loginButton}
-                    />
+                            <Input
+                                label="Password"
+                                value={password}
+                                onChangeText={setPassword}
+                                placeholder="Enter your password"
+                                secureTextEntry
+                                error={errors.password}
+                            />
 
-                    <View style={styles.footer}>
-                        <Text style={styles.footerText}>Don&apos;t have an account? </Text>
-                        <Button
-                            title="Register"
-                            variant="text"
-                            onPress={() => router.push('/register')}
-                        />
-                    </View>
-                </View>
-            </ScrollView>
-        </KeyboardAvoidingView>
+                            <TouchableOpacity 
+                                onPress={() => router.push('/forgot-password')}
+                                style={styles.forgetPasswordLink}
+                            >
+                                <Text style={styles.forgetPasswordText}>forget password</Text>
+                            </TouchableOpacity>
+
+                            <Button
+                                title="Login"
+                                onPress={handleLogin}
+                                loading={loading}
+                                style={styles.loginButton}
+                            />
+
+                            <View style={styles.footer}>
+                                <Text style={styles.footerText}>Don&apos;t have an account? </Text>
+                                <Button
+                                    title="Register"
+                                    variant="text"
+                                    onPress={() => router.push('/register')}
+                                />
+                            </View>
+                        </View>
+                    </Animated.View>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.background,
+        backgroundColor: '#F1F5F9', // Slightly cooler background
+    },
+    bgDecoration1: {
+        position: 'absolute',
+        top: -100,
+        right: -100,
+        width: 300,
+        height: 300,
+        borderRadius: 150,
+        backgroundColor: COLORS.primary + '10',
+    },
+    bgDecoration2: {
+        position: 'absolute',
+        bottom: -50,
+        left: -50,
+        width: 200,
+        height: 200,
+        borderRadius: 100,
+        backgroundColor: COLORS.secondary + '10',
+    },
+    bgDecoration3: {
+        position: 'absolute',
+        top: '20%',
+        left: -30,
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: COLORS.warning + '08',
     },
     scrollContent: {
         flexGrow: 1,
-        justifyContent: 'center',
         padding: SPACING.lg,
+        paddingTop: 60,
+    },
+    brandContainer: {
+        alignItems: 'center',
+        marginBottom: SPACING['2xl'],
+    },
+    logoCircle: {
+        width: 90,
+        height: 90,
+        borderRadius: 45,
+        backgroundColor: COLORS.primary,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: SPACING.lg,
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.3,
+        shadowRadius: 15,
+        elevation: 12,
+    },
+    logoText: {
+        color: '#FFFFFF',
+        fontSize: 36,
+        fontWeight: '900',
+    },
+    brandName: {
+        fontSize: 48,
+        fontWeight: '900',
+        color: COLORS.text,
+        letterSpacing: -1.5,
+    },
+    brandTagline: {
+        fontSize: 14,
+        color: COLORS.textSecondary,
+        fontWeight: '600',
+        marginTop: -6,
+        letterSpacing: 1.5,
+        textTransform: 'uppercase',
+    },
+    contentWrapper: {
+        marginTop: SPACING.sm,
     },
     header: {
         marginBottom: SPACING.xl,
+        alignItems: 'center',
     },
     title: {
-        fontSize: TYPOGRAPHY.fontSize['3xl'],
-        fontWeight: TYPOGRAPHY.fontWeight.bold,
+        fontSize: 24,
+        fontWeight: '800',
         color: COLORS.text,
-        marginBottom: SPACING.sm,
+        marginBottom: 6,
     },
     subtitle: {
-        fontSize: TYPOGRAPHY.fontSize.base,
-        color: COLORS.textSecondary,
+        fontSize: 14,
+        fontWeight: '700',
+        opacity: 0.9,
     },
     form: {
-        marginTop: SPACING.lg,
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        padding: SPACING.xl,
+        borderRadius: 40,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.8)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 20 },
+        shadowOpacity: 0.1,
+        shadowRadius: 30,
+        elevation: 15,
     },
     loginButton: {
         marginTop: SPACING.md,
+        height: 60,
+        borderRadius: 30,
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 10,
+    },
+    forgetPasswordLink: {
+        alignSelf: 'flex-end',
+        marginTop: 2,
+        marginBottom: SPACING.lg,
+    },
+    forgetPasswordText: {
+        color: COLORS.textSecondary,
+        fontSize: 13,
+        fontWeight: '600',
     },
     footer: {
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: SPACING.lg,
+        marginTop: SPACING.xl,
     },
     footerText: {
-        fontSize: TYPOGRAPHY.fontSize.base,
+        fontSize: 15,
         color: COLORS.textSecondary,
+        fontWeight: '500',
     },
 });
 

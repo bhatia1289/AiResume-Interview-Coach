@@ -28,6 +28,13 @@ class SubmissionStatus(str, Enum):
     NOT_ATTEMPTED = "not_attempted"
 
 
+class ProfilePicUpdateRequest(BaseModel):
+    profile_pic: str # Base64 string or URL
+
+class ProfileUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+
 # Base response model
 class ApiResponse(BaseModel):
     success: bool
@@ -70,6 +77,33 @@ class UserLogin(BaseModel):
     password: str
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    new_password: str = Field(..., min_length=8, max_length=100)
+
+    @field_validator('new_password')
+    @classmethod
+    def password_complexity(cls, v: str) -> str:
+        # Re-use complexity logic (ideally this would be a shared function)
+        pass_bytes = v.encode('utf-8')
+        if len(pass_bytes) > 72:
+            raise ValueError('Password cannot be longer than 72 bytes.')
+        
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not re.search(r'[a-z]', v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if len(re.findall(r'[0-9]', v)) < 3:
+            raise ValueError('Password must contain at least 3 digits')
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', v):
+            raise ValueError('Password must contain at least one special character')
+        return v
+
+
 class UserInDB(UserBase):
     id: str
     password: str
@@ -79,6 +113,7 @@ class UserInDB(UserBase):
     current_streak: int = 0
     longest_streak: int = 0
     last_solved_date: Optional[datetime] = None
+    profile_pic: Optional[str] = None
 
 
 class UserResponse(UserBase):
@@ -89,6 +124,7 @@ class UserResponse(UserBase):
     current_streak: int = 0
     longest_streak: int = 0
     last_solved_date: Optional[datetime] = None
+    profile_pic: Optional[str] = None
 
 
 # Topic models
