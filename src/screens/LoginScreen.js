@@ -87,6 +87,7 @@ const LoginScreen = () => {
      * Handle login
      */
     const handleLogin = async () => {
+        setErrors({});
         if (!validateForm()) return;
 
         setLoading(true);
@@ -94,10 +95,22 @@ const LoginScreen = () => {
         setLoading(false);
 
         if (result.success) {
-            // Navigation will be handled automatically by the root layout
             router.replace('/(tabs)');
         } else {
-            Alert.alert('Login Failed', result.error);
+            // Handle incorrect credentials with inline validation
+            const isAuthError = 
+                result.code === 'INVALID_CREDENTIALS' || 
+                result.error?.toLowerCase().includes('invalid') || 
+                result.error?.toLowerCase().includes('credentials');
+
+            if (isAuthError) {
+                setErrors({
+                    email: ' ',
+                    password: 'Invalid email or password'
+                });
+            } else {
+                Alert.alert('Login Failed', result.error);
+            }
         }
     };
 

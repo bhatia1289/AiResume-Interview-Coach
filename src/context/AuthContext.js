@@ -95,10 +95,17 @@ export const AuthProvider = ({ children }) => {
 
             return { success: true };
         } catch (error) {
-            console.error('Login error:', error);
+            // Only log as error if it's not a standard auth failure
+            if (error.status !== 401 && error.data?.error !== 'INVALID_CREDENTIALS') {
+                console.error('Login error:', error);
+            } else {
+                console.warn('Authentication failed:', error.message);
+            }
+            
             return {
                 success: false,
                 error: error.message || 'Login failed',
+                code: error.data?.error || 'UNKNOWN_ERROR'
             };
         }
     }, []);

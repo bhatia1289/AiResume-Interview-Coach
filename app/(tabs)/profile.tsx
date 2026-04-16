@@ -190,14 +190,28 @@ export default function ProfileScreen() {
             <Animated.View style={[styles.statsSection, { opacity: fadeAnim, transform: [{ translateY: statsSlide }] }]}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Performance</Text>
                 <View style={styles.statsGrid}>
-                    <Card style={[styles.statItem, styles.glassCard, { borderColor: colors.divider }]}>
+                    <Card style={[
+                        styles.statItem, 
+                        styles.glassCard, 
+                        { 
+                            backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.7)' : 'rgba(255, 255, 255, 0.65)',
+                            borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.4)'
+                        }
+                    ]}>
                         <View style={[styles.statIconContainer, { backgroundColor: '#E0F2FE' }]}>
                             <Ionicons name="checkmark-circle" size={24} color="#0EA5E9" />
                         </View>
                         <Text style={[styles.statValue, { color: colors.text }]}>{user?.total_solved || 0}</Text>
                         <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Solved</Text>
                     </Card>
-                    <Card style={[styles.statItem, styles.glassCard, { borderColor: colors.divider }]}>
+                    <Card style={[
+                        styles.statItem, 
+                        styles.glassCard, 
+                        { 
+                            backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.7)' : 'rgba(255, 255, 255, 0.65)',
+                            borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.4)'
+                        }
+                    ]}>
                         <View style={[styles.statIconContainer, { backgroundColor: '#FFEDD5' }]}>
                             <Ionicons name="flame" size={24} color="#F59E0B" />
                         </View>
@@ -212,7 +226,14 @@ export default function ProfileScreen() {
                 {/* Preferences */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>Preferences</Text>
-                    <Card style={[styles.menuCard, styles.glassCard]}>
+                    <Card style={[
+                        styles.menuCard, 
+                        styles.glassCard,
+                        { 
+                            backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.7)' : 'rgba(255, 255, 255, 0.65)',
+                            borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.4)'
+                        }
+                    ]}>
                         <View style={[styles.menuItem, { borderBottomColor: colors.divider }]}>
                             {/* Theme Toggle code same as before */}
                             <View style={styles.menuItemLeft}>
@@ -265,7 +286,14 @@ export default function ProfileScreen() {
                 {/* Security */}
                 <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>Security</Text>
-                    <Card style={[styles.menuCard, styles.glassCard]}>
+                    <Card style={[
+                        styles.menuCard, 
+                        styles.glassCard,
+                        { 
+                            backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.7)' : 'rgba(255, 255, 255, 0.65)',
+                            borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.4)'
+                        }
+                    ]}>
                         <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={() => router.push({ pathname: '/reset-password', params: { email: user?.email } })}>
                             <View style={styles.menuItemLeft}>
                                 <View style={[styles.menuIcon, { backgroundColor: '#FEE2E2' }]}>
@@ -401,9 +429,7 @@ const styles = StyleSheet.create({
         padding: SPACING.lg,
     },
     glassCard: {
-        backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.7)' : 'rgba(255, 255, 255, 0.65)',
         borderWidth: 1,
-        borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.4)',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 10 },
         shadowOpacity: 0.1,

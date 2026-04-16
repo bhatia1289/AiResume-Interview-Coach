@@ -58,6 +58,8 @@ async def get_ai_hint(
             )
         )
     
+    except HTTPException as e:
+        raise e
     except Exception as e:
         return ApiResponse(
             success=False,
@@ -101,6 +103,8 @@ async def get_ai_feedback(
             data=feedback
         )
     
+    except HTTPException as e:
+        raise e
     except Exception as e:
         return ApiResponse(
             success=False,

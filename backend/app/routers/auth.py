@@ -205,6 +205,9 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
             message="User retrieved successfully",
             data=UserResponse(**user.dict())
         )
+    except HTTPException as e:
+        # Re-raise HTTP exceptions (like 401 from verify_token) so FastAPI handles them
+        raise e
     except Exception as e:
         return ApiResponse(
             success=False,
@@ -247,6 +250,7 @@ async def update_profile_pic(request: ProfilePicUpdateRequest, credentials: HTTP
                 message="Failed to update profile picture",
                 error="UPDATE_FAILED"
             )
+    except Exception as e:
         return ApiResponse(
             success=False,
             message="Failed to update profile picture",

@@ -44,6 +44,8 @@ async def get_dashboard(credentials: HTTPAuthorizationCredentials = Depends(secu
             data=dashboard_data
         )
     
+    except HTTPException as e:
+        raise e
     except Exception as e:
         return ApiResponse(
             success=False,
@@ -87,6 +89,8 @@ async def submit_solution(
             data=submission_result
         )
     
+    except HTTPException as e:
+        raise e
     except Exception as e:
         return ApiResponse(
             success=False,
@@ -125,6 +129,8 @@ async def get_progress(credentials: HTTPAuthorizationCredentials = Depends(secur
             data=progress_data
         )
     
+    except HTTPException as e:
+        raise e
     except Exception as e:
         return ApiResponse(
             success=False,
